@@ -38,14 +38,15 @@ do
     
     updatesGroup:AddLabel(
         'update logs:\n' ..
-        '[+] added weapons to auto buy\n' ..
+        '[+] players section with spectate/whitelist/teleport\n' ..
+        '[+] enhanced whitelist protection system\n' ..
+        '[+] configurable spinbot key binding\n' ..
+        '[+] removed auto buy system (didn\'t work)\n' ..
         '[+] auto grab feature with orbit protection\n' ..
         '[+] auto grab (knocked players only)\n' ..
-        '[+] spinbot with keybind support\n' ..
-        '[+] removed auto stomp feature\n' ..
         '[+] improved grab mechanics with G key\n' ..
         '[+] custom hit sounds support\n' ..
-        '[+] auto equip mask/armor buttons\n' ..
+        '[+] da hood utilities and features\n' ..
 	'find any bugs? dm me. have any suggestions? @daskepta on discord', true
     )
 end
@@ -320,7 +321,7 @@ do
     end
     
     local function getWeapon()
-        local selectedWeapon = Options.auto_stomp_weapon.Value
+        local selectedWeapon = "[LMG]" -- Default weapon since auto_stomp_weapon option doesn't exist
         
         if selectedWeapon == "Ragebot Only" then
             return true
@@ -362,14 +363,13 @@ do
             end
         end
         
-        if Toggles.auto_buy_toggle and Toggles.auto_buy_toggle.Value then
-            if buyWeapon(selectedWeapon) then
-                for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
-                    if tool.Name == selectedWeapon then
-                        tool.Parent = char
-                        task.wait(0.1)
-                        return tool
-                    end
+        -- Auto buy weapons is always enabled since toggle doesn't exist
+        if buyWeapon(selectedWeapon) then
+            for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+                if tool.Name == selectedWeapon then
+                    tool.Parent = char
+                    task.wait(0.1)
+                    return tool
                 end
             end
         end
@@ -378,7 +378,7 @@ do
     end
     
     local function reloadWeapon(weapon)
-        if not weapon or not Toggles.auto_reload or not Toggles.auto_reload.Value or weapon == true then return end
+        if not weapon or weapon == true then return end
         
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game)
         task.wait(0.1)
@@ -414,28 +414,16 @@ do
         end
     end))
     
-    combatGroup:AddToggle("spinbot_toggle", {
-        Text = "Spinbot",
-        Default = false,
-        Tooltip = "Rapidly spin your character to dodge bullets (Hold X key)"
-    })
-    
-    combatGroup:AddLabel("Hold X key to activate spinbot", true)
-    
+    local spinbotActive = false
     local spinbotConnection = nil
-    local spinbotKeyHeld = false
     
-    table.insert(framework.connections, UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        if input.KeyCode == Enum.KeyCode.X and Toggles.spinbot_toggle.Value then
-            spinbotKeyHeld = true
+    local function toggleSpinbot()
+        spinbotActive = not spinbotActive
+        
+        if spinbotActive then
             if spinbotConnection then spinbotConnection:Disconnect() end
             
             spinbotConnection = RunService.Heartbeat:Connect(function()
-                if not spinbotKeyHeld then 
-                    spinbotConnection:Disconnect()
-                    return 
-                end
                 local character = LocalPlayer.Character
                 if character and character:FindFirstChild("HumanoidRootPart") then
                     character.HumanoidRootPart.CFrame = character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(30), 0)
@@ -444,116 +432,41 @@ do
             
             table.insert(framework.connections, spinbotConnection)
             api:Notify("Spinbot: ACTIVE", 1)
-        end
-    end))
-    
-    table.insert(framework.connections, UserInputService.InputEnded:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        if input.KeyCode == Enum.KeyCode.X then
-            spinbotKeyHeld = false
+        else
             if spinbotConnection then
                 spinbotConnection:Disconnect()
                 spinbotConnection = nil
             end
+            api:Notify("Spinbot: INACTIVE", 1)
+        end
+    end
+    
+    combatGroup:AddToggle("spinbot_toggle", {
+        Text = "Spinbot",
+        Default = false,
+        Tooltip = "Toggle to enable/disable spinbot functionality"
+    })
+    
+    combatGroup:AddKeybind("spinbot_key", {
+        Text = "Spinbot Toggle Key",
+        Default = "X",
+        Mode = api.KeybindModes.Toggle,
+        Tooltip = "Press to toggle spinbot on/off",
+        Callback = function()
             if Toggles.spinbot_toggle.Value then
-                api:Notify("Spinbot: INACTIVE", 1)
+                toggleSpinbot()
             end
         end
-    end))
-    
-    combatGroup:AddDivider("Auto Buy System")
-    
-    local autoBuyCategories = {
-        ["Ranged Weapons"] = {"[LMG]", "[Rifle]", "[AUG]", "[Shotgun]", "[TacticalShotgun]", "[SMG]", "[Revolver]", "[Silencer]", "[Glock]", "[Taser]", "[AR]", "[AK47]", "[Flamethrower]", "[RPG]", "[Minigun]"},
-        ["Melee Weapons"] = {"[Knife]", "[Bat]", "[Crowbar]", "[Hammer]", "[Machete]", "[Katana]", "[Pipe]", "[Wrench]", "[Chainsaw]", "[Pickaxe]", "[Shovel]", "[Axe]", "[Sledgehammer]", "[Cleaver]", "[Spear]"},
-        ["Food & Drinks"] = {"[Chicken]", "[Hamburger]", "[Pizza]", "[Cranberry]", "[Lemonade]", "[Donut]", "[Sandwich]", "[Chips]", "[Soda]", "[Coffee]"},
-        ["Masks & Accessories"] = {"[Mask]", "[Ski Mask]", "[Durag]", "[Bandana]", "[Letterman]", "[Hoodie]", "[Cap]", "[Beanie]"},
-        ["Drugs"] = {"[Lean]", "[Adderall]", "[Cocaine]", "[Mushrooms]", "[Weed]", "[Xanax]", "[Heroin]", "[Molly]"},
-        ["Equipment"] = {"[Armor]", "[Phone]", "[LockPick]", "[SprayPaint]", "[Handcuffs]", "[Flashlight]", "[Binoculars]", "[Medkit]"}
-    }
-    
-    combatGroup:AddDropdown("auto_buy_category", {
-        Text = "Item Category",
-        Default = 1,
-        Values = {"Ranged Weapons", "Melee Weapons", "Food & Drinks", "Masks & Accessories", "Drugs", "Equipment"},
-        Tooltip = "Select category of items to auto buy"
     })
     
-    combatGroup:AddDropdown("auto_buy_item", {
-        Text = "Item Selection",
-        Default = 1,
-        Values = autoBuyCategories["Ranged Weapons"],
-        Tooltip = "Select specific item to auto buy"
-    })
     
-    Options.auto_buy_category:OnChanged(function(value)
-        local items = autoBuyCategories[value] or {}
-        Options.auto_buy_item:SetValues(items)
-        Options.auto_buy_item:SetValue(items[1] or "")
-    end)
-    
-    combatGroup:AddButton("Buy Selected Item", function()
-        local selectedItem = Options.auto_buy_item.Value
-        if selectedItem and selectedItem ~= "" then
-            api:Notify("Attempting to buy " .. selectedItem, 1)
-            if buyItem(selectedItem) then
-                api:Notify("Successfully bought " .. selectedItem, 2)
-            else
-                api:Notify("Failed to buy " .. selectedItem, 2)
-            end
-        else
-            api:Notify("No item selected", 2)
-        end
-    end)
-    
-    combatGroup:AddButton("Buy All Category Items", function()
-        local category = Options.auto_buy_category.Value
-        local items = autoBuyCategories[category] or {}
-        
-        api:Notify("Buying all " .. category .. " items...", 2)
-        
-        task.spawn(function()
-            for _, item in pairs(items) do
-                api:Notify("Buying " .. item, 1)
-                if buyItem(item) then
-                    api:Notify("✓ " .. item, 1)
-                else
-                    api:Notify("✗ " .. item, 1)
-                end
-                task.wait(1)
-            end
-            api:Notify("Finished buying " .. category .. " items", 2)
-        end)
-    end)
-    
-    combatGroup:AddButton("Buy All Weapons", function()
-        api:Notify("Buying all weapons...", 2)
-        
-        task.spawn(function()
-            local allWeapons = {}
-            for _, weapon in pairs(autoBuyCategories["Ranged Weapons"]) do
-                table.insert(allWeapons, weapon)
-            end
-            for _, weapon in pairs(autoBuyCategories["Melee Weapons"]) do
-                table.insert(allWeapons, weapon)
-            end
-            
-            for _, weapon in pairs(allWeapons) do
-                api:Notify("Buying " .. weapon, 1)
-                if buyItem(weapon) then
-                    api:Notify("✓ " .. weapon, 1)
-                else
-                    api:Notify("✗ " .. weapon, 1)
-                end
-                task.wait(0.8)
-            end
-            api:Notify("Finished buying all weapons", 2)
-        end)
-    end)
+    if api.Keybinds then
+        api.Keybinds:Register("Spinbot", "spinbot_key", "Toggle spinbot")
+    end
     
     combatGroup:AddDivider("Custom Hit Sounds")
     
-    -- Register custom hit sounds using the API
+    
     if api.Sounds then
         api.Sounds:Register("headshot", "rbxassetid://131961136")
         api.Sounds:Register("hitmarker", "rbxassetid://160432334")
@@ -580,14 +493,14 @@ do
         local char = LocalPlayer.Character
         if not char then return nil end
         
-        -- Check if already equipped
+       
         for _, tool in pairs(char:GetChildren()) do
             if tool:IsA("Tool") and tool.Name == "[LMG]" then
                 return tool
             end
         end
         
-        -- Check backpack
+        
         for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
             if tool.Name == "[LMG]" then
                 tool.Parent = char
@@ -596,15 +509,13 @@ do
             end
         end
         
-        -- Auto buy if enabled
-        if Toggles.auto_buy_toggle and Toggles.auto_buy_toggle.Value then
-            if buyWeapon("[LMG]") then
-                for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
-                    if tool.Name == "[LMG]" then
-                        tool.Parent = char
-                        task.wait(0.1)
-                        return tool
-                    end
+        
+        if buyWeapon("[LMG]") then
+            for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+                if tool.Name == "[LMG]" then
+                    tool.Parent = char
+                    task.wait(0.1)
+                    return tool
                 end
             end
         end
@@ -636,35 +547,28 @@ do
         
         local targetHRP = player.Character.HumanoidRootPart
         
-        -- Must be knocked first
         if not isPlayerKnocked(player) then
             return false
         end
         
-        -- Get right next to the knocked player
         char.HumanoidRootPart.CFrame = CFrame.new(targetHRP.Position + Vector3.new(0, 1, 2), targetHRP.Position)
         task.wait(0.3)
         
-        -- Use G key to grab (proper Da Hood method)
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
         task.wait(0.1)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
         task.wait(0.4)
         
-        -- Check if grab was successful
         local bodyEffects = player.Character:FindFirstChild("BodyEffects")
         if bodyEffects then
-            -- Check for grabbed state
             if bodyEffects:FindFirstChild("Grabbed") and bodyEffects.Grabbed.Value then
                 return true
             end
-            -- Check if player is being carried
             if bodyEffects:FindFirstChild("BeingCarried") and bodyEffects.BeingCarried.Value then
                 return true
             end
         end
         
-        -- Check if player is connected to us (another way to detect grab)
         local attachment = player.Character:FindFirstChild("GRABBING_CONSTRAINT")
         if attachment then
             return true
@@ -683,7 +587,7 @@ do
             grabSafePosition = char.HumanoidRootPart.CFrame
         end
         
-        -- Transport while orbiting to avoid getting hit
+        
         local targetHRP = player.Character.HumanoidRootPart
         local startPos = targetHRP.Position
         local endPos = grabSafePosition.Position
@@ -697,10 +601,10 @@ do
             local alpha = i / steps
             local lerpedPosition = startPos:lerp(endPos, alpha)
             
-            -- Orbit around the lerped position while transporting
+            
             orbitAroundPlayer({Character = {HumanoidRootPart = {Position = lerpedPosition}}}, 4)
             
-            -- Move the grabbed player with us
+            
             if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                 local offsetPosition = lerpedPosition + Vector3.new(0, 2, 0)
                 player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPosition)
@@ -709,7 +613,7 @@ do
             task.wait(0.05)
         end
         
-        -- Final positioning
+        
         if grabSafePosition then
             char.HumanoidRootPart.CFrame = grabSafePosition
         end
@@ -720,7 +624,7 @@ do
     local function releaseGrab()
         if not isGrabbing then return end
         
-        -- Use G key to release (proper Da Hood method)
+        
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
         task.wait(0.1)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
@@ -742,7 +646,7 @@ do
         local targetHRP = target.Character.HumanoidRootPart
         local targetPos = targetHRP.Position
         
-        -- Orbit around target while shooting
+        
         local shootTime = 0
         local maxShootTime = 3
         
@@ -760,13 +664,11 @@ do
             task.wait(0.1)
         end
         
-        -- Reload if needed
-        if Toggles.auto_reload and Toggles.auto_reload.Value then
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game)
-            task.wait(0.1)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.R, false, game)
-            task.wait(0.3)
-        end
+        
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.R, false, game)
+        task.wait(0.3)
         
         return isPlayerKnocked(target)
     end
@@ -777,17 +679,17 @@ do
                 local char = LocalPlayer.Character
                 if not char or not char:FindFirstChild("HumanoidRootPart") then return end
                 
-                -- Set safe position if not set
+                
                 if not grabSafePosition then
                     grabSafePosition = char.HumanoidRootPart.CFrame
                 end
                 
-                -- Find knocked player only (no killing)
+                
                 local knockedPlayer = findKnockedPlayer()
                 if knockedPlayer and not isWhitelisted(knockedPlayer) then
                     local originalPosition = char.HumanoidRootPart.CFrame
                     
-                    -- Only grab already knocked players
+                    
                     api:Notify("Attempting to grab " .. knockedPlayer.Name, 1)
                     
                     if performGrab(knockedPlayer) then
@@ -795,28 +697,28 @@ do
                         grabbedPlayer = knockedPlayer
                         api:Notify("Successfully grabbed " .. knockedPlayer.Name, 2)
                         
-                        -- Transport player to safe position
+                        
                         if transportPlayer(knockedPlayer) then
                             api:Notify("Successfully transported " .. knockedPlayer.Name, 2)
                         else
                             api:Notify("Failed to transport " .. knockedPlayer.Name, 2)
                         end
                         
-                        -- Release grab after transport
+                        
                         task.wait(1)
                         releaseGrab()
                     else
                         api:Notify("Failed to grab " .. knockedPlayer.Name, 2)
                     end
                     
-                    -- Return to original position if not grabbing
+                    
                     if not isGrabbing and char:FindFirstChild("HumanoidRootPart") and originalPosition then
                         char.HumanoidRootPart.CFrame = originalPosition
                     end
                 end
             end)
             
-            task.wait(1) -- Delay between grab attempts
+            task.wait(1) 
         end
     end
     
@@ -828,13 +730,13 @@ do
             autoGrabActive = state
             
             if state then
-                -- Set safe position to current position
+                
                 local char = LocalPlayer.Character
                 if char and char:FindFirstChild("HumanoidRootPart") then
                     grabSafePosition = char.HumanoidRootPart.CFrame
                 end
                 
-                -- Reset grab state
+                
                 isGrabbing = false
                 grabbedPlayer = nil
                 orbitAngle = 0
@@ -844,7 +746,7 @@ do
             else
                 api:Notify("Auto Grab: OFF", 2)
                 
-                -- Release any active grab
+                
                 if isGrabbing then
                     releaseGrab()
                 end
@@ -892,11 +794,335 @@ do
         end
     end)
     
-    -- ...existing code...
+    
+    local originalFireServer = game.ReplicatedStorage.MainEvent.FireServer
+    
+    game.ReplicatedStorage.MainEvent.FireServer = function(self, action, ...)
+        local args = {...}
+        
+        
+        if action == "MOUSE" or action == "UpdateMousePos" or action == "Hit" or action == "Damage" then
+            local targetPlayer = args[2]
+            if targetPlayer and typeof(targetPlayer) == "Instance" and targetPlayer:IsA("Player") then
+                if isWhitelisted(targetPlayer) then
+                    api:Notify("Blocked action against whitelisted player: " .. targetPlayer.Name, 1)
+                    return
+                end
+            end
+        end
+        
+        return originalFireServer(self, action, ...)
+    end
+    
+    -- Hook weapon activation to prevent hitting whitelisted players
+    local function hookWeaponActivation(tool)
+        if tool and tool:IsA("Tool") then
+            local originalActivate = tool.Activate
+            tool.Activate = function(...)
+                -- Check if we're targeting a whitelisted player
+                local mouse = LocalPlayer:GetMouse()
+                if mouse and mouse.Target then
+                    local targetCharacter = mouse.Target.Parent
+                    if targetCharacter and targetCharacter:FindFirstChild("Humanoid") then
+                        local targetPlayer = Players:GetPlayerFromCharacter(targetCharacter)
+                        if targetPlayer and isWhitelisted(targetPlayer) then
+                            api:Notify("Cannot attack whitelisted player: " .. targetPlayer.Name, 1)
+                            return
+                        end
+                    end
+                end
+                
+                return originalActivate(...)
+            end
+        end
+    end
+    
+    
+    for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+        hookWeaponActivation(tool)
+    end
+    
+    if LocalPlayer.Character then
+        for _, tool in pairs(LocalPlayer.Character:GetChildren()) do
+            hookWeaponActivation(tool)
+        end
+    end
+    
+    
+    table.insert(framework.connections, LocalPlayer.Backpack.ChildAdded:Connect(hookWeaponActivation))
+    table.insert(framework.connections, LocalPlayer.CharacterAdded:Connect(function(character)
+        character.ChildAdded:Connect(function(child)
+            if child:IsA("Tool") then
+                hookWeaponActivation(child)
+            end
+        end)
+    end))
+    
+    
+    local hudTargetEnabled = true
+    local targetInfo = {
+        player = nil,
+        health = 0,
+        maxHealth = 100,
+        distance = 0
+    }
+    
+    local hudFrame = Instance.new("ScreenGui")
+    hudFrame.Name = "TargetHUD"
+    hudFrame.Parent = game.CoreGui
+    hudFrame.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 220, 0, 80)
+    mainFrame.Position = UDim2.new(0.5, -110, 0.15, 0)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.BackgroundTransparency = 0.2
+    mainFrame.Visible = false
+    mainFrame.Parent = hudFrame
+    
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 6)
+    UICorner.Parent = mainFrame
+    
+    local UIStroke = Instance.new("UIStroke")
+    UIStroke.Color = Color3.fromRGB(255, 50, 50)
+    UIStroke.Thickness = 1.5
+    UIStroke.Parent = mainFrame
+    
+    local targetLabel = Instance.new("TextLabel")
+    targetLabel.Name = "TargetLabel"
+    targetLabel.Size = UDim2.new(0, 200, 0, 25)
+    targetLabel.Position = UDim2.new(0.5, -100, 0, 5)
+    targetLabel.BackgroundTransparency = 1
+    targetLabel.Text = "TARGET"
+    targetLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+    targetLabel.TextSize = 16
+    targetLabel.Font = Enum.Font.GothamBold
+    targetLabel.Parent = mainFrame
+    
+    local playerName = Instance.new("TextLabel")
+    playerName.Name = "PlayerName"
+    playerName.Size = UDim2.new(0, 200, 0, 20)
+    playerName.Position = UDim2.new(0.5, -100, 0, 25)
+    playerName.BackgroundTransparency = 1
+    playerName.Text = "No Target"
+    playerName.TextColor3 = Color3.fromRGB(255, 255, 255)
+    playerName.TextSize = 14
+    playerName.Font = Enum.Font.Gotham
+    playerName.Parent = mainFrame
+    
+    local healthBG = Instance.new("Frame")
+    healthBG.Name = "HealthBG"
+    healthBG.Size = UDim2.new(0, 200, 0, 10)
+    healthBG.Position = UDim2.new(0.5, -100, 0, 50)
+    healthBG.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    healthBG.BorderSizePixel = 0
+    healthBG.Parent = mainFrame
+    
+    local healthBar = Instance.new("Frame")
+    healthBar.Name = "HealthBar"
+    healthBar.Size = UDim2.new(1, 0, 1, 0)
+    healthBar.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    healthBar.BorderSizePixel = 0
+    healthBar.Parent = healthBG
+    
+    local UICorner2 = Instance.new("UICorner")
+    UICorner2.CornerRadius = UDim.new(0, 3)
+    UICorner2.Parent = healthBG
+    
+    local UICorner3 = Instance.new("UICorner")
+    UICorner3.CornerRadius = UDim.new(0, 3)
+    UICorner3.Parent = healthBar
+    
+    local healthText = Instance.new("TextLabel")
+    healthText.Name = "HealthText"
+    healthText.Size = UDim2.new(0, 200, 0, 15)
+    healthText.Position = UDim2.new(0.5, -100, 0, 60)
+    healthText.BackgroundTransparency = 1
+    healthText.Text = "0/100 HP"
+    healthText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    healthText.TextSize = 12
+    healthText.Font = Enum.Font.Gotham
+    healthText.Parent = mainFrame
+    
+    combatGroup:AddToggle("target_hud", {
+        Text = "Target HUD",
+        Default = true,
+        Tooltip = "Display information about your current target",
+        Callback = function(state)
+            hudTargetEnabled = state
+            mainFrame.Visible = false
+        end
+    })
+    
+    table.insert(framework.connections, RunService.RenderStepped:Connect(function()
+        if not hudTargetEnabled then 
+            mainFrame.Visible = false
+            return 
+        end
+        
+        local targetPlayer = nil
+        
+        if Toggles and Toggles.use_silent_aim and Toggles.use_silent_aim.Value and api.Target and api.Target.silent and api.Target.silent.player then
+            targetPlayer = api.Target.silent.player
+        end
+        
+        if not targetPlayer then
+            targetPlayer = findTargetPlayer()
+        end
+        
+        if targetPlayer and targetPlayer.Character and 
+           targetPlayer.Character:FindFirstChild("Humanoid") and 
+           targetPlayer.Character:FindFirstChild("HumanoidRootPart") and 
+           LocalPlayer.Character and 
+           LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            
+            local humanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+            local distance = (LocalPlayer.Character.HumanoidRootPart.Position - targetPlayer.Character.HumanoidRootPart.Position).Magnitude
+            
+            targetInfo.player = targetPlayer
+            targetInfo.health = humanoid.Health
+            targetInfo.maxHealth = humanoid.MaxHealth
+            targetInfo.distance = distance
+            
+            mainFrame.Visible = true
+            playerName.Text = targetPlayer.Name
+            healthBar.Size = UDim2.new(targetInfo.health / targetInfo.maxHealth, 0, 1, 0)
+            healthText.Text = math.floor(targetInfo.health) .. "/" .. math.floor(targetInfo.maxHealth) .. " HP | " .. math.floor(distance) .. "m"
+            
+            local healthPercent = targetInfo.health / targetInfo.maxHealth
+            if healthPercent <= 0.25 then
+                healthBar.BackgroundColor3 = Color3.fromRGB(255, 50, 50) 
+            elseif healthPercent <= 0.5 then
+                healthBar.BackgroundColor3 = Color3.fromRGB(255, 150, 50) 
+            else
+                healthBar.BackgroundColor3 = Color3.fromRGB(50, 255, 50) 
+            end
+            
+            
+            if isPlayerKnocked(targetPlayer) then
+                UIStroke.Color = Color3.fromRGB(255, 215, 0) 
+                targetLabel.Text = "KNOCKED"
+                targetLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+            else
+                UIStroke.Color = Color3.fromRGB(255, 50, 50) 
+                targetLabel.Text = "TARGET"
+                targetLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+            end
+        else
+            mainFrame.Visible = false
+        end
+    end))
 end
 
 do
-    local playerGroup = skeptaTab:AddRightGroupbox("player management")
+    local playerGroup = skeptaTab:AddRightGroupbox("players")
+    
+    playerGroup:AddDivider("Player List")
+    
+    local playerList = {}
+    local selectedPlayer = nil
+    
+    local function updatePlayerList()
+        playerList = {}
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                table.insert(playerList, player.Name)
+            end
+        end
+        
+        if Options.player_dropdown then
+            Options.player_dropdown:SetValues(playerList)
+            if #playerList > 0 then
+                Options.player_dropdown:SetValue(playerList[1])
+            end
+        end
+    end
+    
+    playerGroup:AddDropdown("player_dropdown", {
+        Text = "Select Player",
+        Default = 1,
+        Values = playerList,
+        Tooltip = "Select a player"
+    })
+    
+    Options.player_dropdown:OnChanged(function(value)
+        selectedPlayer = value
+    end)
+    
+    playerGroup:AddButton("Spectate Player", function()
+        if selectedPlayer then
+            local player = Players:FindFirstChild(selectedPlayer)
+            if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                workspace.CurrentCamera.CameraSubject = player.Character.Humanoid
+                api:Notify("Spectating " .. selectedPlayer, 2)
+            else
+                api:Notify("Player not found", 2)
+            end
+        else
+            api:Notify("No player selected", 2)
+        end
+    end)
+    
+    playerGroup:AddButton("Whitelist Player", function()
+        if selectedPlayer then
+            if not whitelistedPlayers[selectedPlayer] then
+                whitelistedPlayers[selectedPlayer] = true
+                api:Notify("Added " .. selectedPlayer .. " to whitelist", 2)
+            else
+                api:Notify(selectedPlayer .. " is already whitelisted", 2)
+            end
+        else
+            api:Notify("No player selected", 2)
+        end
+    end)
+    
+    playerGroup:AddButton("Teleport to Player", function()
+        if selectedPlayer then
+            local player = Players:FindFirstChild(selectedPlayer)
+            if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    char.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
+                    api:Notify("Teleported to " .. selectedPlayer, 2)
+                else
+                    api:Notify("Your character not found", 2)
+                end
+            else
+                api:Notify("Player not found", 2)
+            end
+        else
+            api:Notify("No player selected", 2)
+        end
+    end)
+    
+    playerGroup:AddButton("Stop Spectating", function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            workspace.CurrentCamera.CameraSubject = char.Humanoid
+            api:Notify("Stopped spectating", 2)
+        end
+    end)
+    
+    playerGroup:AddButton("Refresh Player List", function()
+        updatePlayerList()
+        api:Notify("Player list refreshed", 2)
+    end)
+    
+    
+    table.insert(framework.connections, Players.PlayerAdded:Connect(function(player)
+        task.wait(1) 
+        updatePlayerList()
+    end))
+    
+    table.insert(framework.connections, Players.PlayerRemoving:Connect(function(player)
+        updatePlayerList()
+    end))
+    
+    
+    updatePlayerList()
     
     playerGroup:AddDivider("Whitelist Management")
     
@@ -928,214 +1154,8 @@ do
         api:Notify("Whitelist cleared", 2)
     end)
     
-    playerGroup:AddDivider("Player Interaction")
-    
-    local words = {
-        "where are you aiming at?",
-        "sonned",
-        "bad",
-        "even my grandma has faster reactions",
-        ":clown:",
-        "gg = get good",
-        "im just better",
-        "my gaming chair is just better",
-        "clip me",
-        "skill",
-        ":Skull:",
-        "go play adopt me",
-        "go play brookhaven",
-        "omg you are so good :screm:",
-        "awesome",
-        "fridge",
-        "do not bully pliisss :sobv:",
-        "it was your lag ofc",
-        "fly high",
-        "*cough* *cough*",
-        "son",
-        "already mad?",
-        "please don't report :sobv:",
-        "sob harder",
-        "UE on top",
-        "alt + f4 for better aim",
-        "Get sonned",
-        "Where are you aiming? 💀",
-        "You just got outplayed...",
-        "Omg you're so good... said no one ever",
-        "You built like Gru, but with zero braincells 💀",
-        "Fly high but your aim is still low 😹",
-        "Bet you've never heard of UE",
-        "UE is best, sorry but its facts",
-        "UE > your skills 😭",
-        "UE always wins",
-        "UE doesn't miss, unlike you 💀",
-        "UE made me get ekittens"
-    }
-    
-    local enabled = false
-    
-    playerGroup:AddToggle("autotrash_e", { 
-        Text = "Trash Talk (E key)", 
-        Default = false 
-    }):OnChanged(function(v)
-        enabled = v
-    end)
-    
-    local function SendChatMessage(message)
-        if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
-            TextChatService.TextChannels.RBXGeneral:SendAsync(message)
-        else
-            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, "All")
-        end
-    end
-    
-    table.insert(framework.connections, UserInputService.InputBegan:Connect(function(input, gpe)
-        if gpe or not enabled then return end
-        if input.KeyCode == Enum.KeyCode.E then
-            local msg = words[math.random(1, #words)]
-            SendChatMessage(msg)
-            api:Notify("Trash: " .. msg, 1.5)
-        end
-    end))
-end
-
 do
     local utilGroup = skeptaTab:AddLeftGroupbox("utilities")
-    
-    utilGroup:AddDivider("Da Hood Utilities")
-    
-    -- Auto Drug Dealer
-    local autoDrugDealerActive = false
-    
-    local function autoDrugDealerLoop()
-        while autoDrugDealerActive do
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                -- Look for drug dealer NPCs
-                for _, npc in pairs(workspace:GetChildren()) do
-                    if npc:IsA("Model") and npc.Name == "DrugDealer" then
-                        local npcHrp = npc:FindFirstChild("HumanoidRootPart")
-                        if npcHrp then
-                            local distance = (char.HumanoidRootPart.Position - npcHrp.Position).Magnitude
-                            if distance <= 20 then
-                                char.HumanoidRootPart.CFrame = npcHrp.CFrame * CFrame.new(0, 0, -3)
-                                task.wait(0.5)
-                                
-                                -- Look for interaction button
-                                for _, part in pairs(npc:GetChildren()) do
-                                    if part:IsA("Part") and part:FindFirstChild("ClickDetector") then
-                                        fireclickdetector(part.ClickDetector)
-                                        task.wait(1)
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            task.wait(2)
-        end
-    end
-    
-    utilGroup:AddToggle("auto_drug_dealer", {
-        Text = "Auto Drug Dealer",
-        Default = false,
-        Tooltip = "Automatically interact with drug dealers",
-        Callback = function(state)
-            autoDrugDealerActive = state
-            if state then
-                task.spawn(autoDrugDealerLoop)
-                api:Notify("Auto Drug Dealer: ON", 2)
-            else
-                api:Notify("Auto Drug Dealer: OFF", 2)
-            end
-        end
-    })
-    
-    -- Auto Lockpick
-    local autoLockpickActive = false
-    
-    local function autoLockpickLoop()
-        while autoLockpickActive do
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                -- Look for lockpickable doors/ATMs
-                for _, obj in pairs(workspace:GetDescendants()) do
-                    if obj:IsA("Part") and (obj.Name == "ATM" or obj.Name == "Door") then
-                        local distance = (char.HumanoidRootPart.Position - obj.Position).Magnitude
-                        if distance <= 15 then
-                            -- Check if we have lockpick
-                            local lockpick = char:FindFirstChild("[LockPick]") or LocalPlayer.Backpack:FindFirstChild("[LockPick]")
-                            if lockpick then
-                                if lockpick.Parent == LocalPlayer.Backpack then
-                                    lockpick.Parent = char
-                                    task.wait(0.1)
-                                end
-                                
-                                char.HumanoidRootPart.CFrame = obj.CFrame * CFrame.new(0, 0, -3)
-                                task.wait(0.5)
-                                
-                                if lockpick:FindFirstChild("RemoteEvent") then
-                                    lockpick.RemoteEvent:FireServer()
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            task.wait(3)
-        end
-    end
-    
-    utilGroup:AddToggle("auto_lockpick", {
-        Text = "Auto Lockpick",
-        Default = false,
-        Tooltip = "Automatically lockpick doors and ATMs",
-        Callback = function(state)
-            autoLockpickActive = state
-            if state then
-                task.spawn(autoLockpickLoop)
-                api:Notify("Auto Lockpick: ON", 2)
-            else
-                api:Notify("Auto Lockpick: OFF", 2)
-            end
-        end
-    })
-    
-    -- Auto Mask
-    utilGroup:AddButton("Auto Equip Mask", function()
-        local char = LocalPlayer.Character
-        if char then
-            local mask = char:FindFirstChild("[Mask]") or LocalPlayer.Backpack:FindFirstChild("[Mask]")
-            if mask then
-                if mask.Parent == LocalPlayer.Backpack then
-                    mask.Parent = char
-                    api:Notify("Equipped mask", 2)
-                else
-                    api:Notify("Mask already equipped", 2)
-                end
-            else
-                api:Notify("No mask found", 2)
-            end
-        end
-    end)
-    
-    -- Auto Armor
-    utilGroup:AddButton("Auto Equip Armor", function()
-        local char = LocalPlayer.Character
-        if char then
-            local armor = char:FindFirstChild("[Armor]") or LocalPlayer.Backpack:FindFirstChild("[Armor]")
-            if armor then
-                if armor.Parent == LocalPlayer.Backpack then
-                    armor.Parent = char
-                    api:Notify("Equipped armor", 2)
-                else
-                    api:Notify("Armor already equipped", 2)
-                end
-            else
-                api:Notify("No armor found", 2)
-            end
-        end
-    end)
     
     utilGroup:AddDivider("Standard Utilities")
     
@@ -1176,10 +1196,9 @@ do
         end
     })
     
-    if Toggles.cash_aura_toggle and Toggles.cash_aura_toggle.Value then
-        auraActive = true
-        task.spawn(cashAuraLoop)
-    end
+    
+    auraActive = true
+    task.spawn(cashAuraLoop)
     
     local afkConnection
     
