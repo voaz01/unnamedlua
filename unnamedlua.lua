@@ -38,14 +38,14 @@ do
     
     updatesGroup:AddLabel(
         'update logs:\n' ..
-        '[+] added auto grab feature with orbit protection\n' ..
-        '[+] added auto grab\n' ..
-        '[+] added player stats monitor\n' ..
-        '[+] added spinbot\n' ..
-        '[+] fixed script loading issues\n' ..
-        '[+] added whitelist\n' ..
-        '[+] added weapon selection and auto-buy options\n' ..
-        '[+] improved targeting system with silent aim\n' ..
+        '[+] added weapons to auto buy\n' ..
+        '[+] auto grab feature with orbit protection\n' ..
+        '[+] auto grab (knocked players only)\n' ..
+        '[+] spinbot with keybind support\n' ..
+        '[+] removed auto stomp feature\n' ..
+        '[+] improved grab mechanics with G key\n' ..
+        '[+] custom hit sounds support\n' ..
+        '[+] auto equip mask/armor buttons\n' ..
 	'find any bugs? dm me. have any suggestions? @daskepta on discord', true
     )
 end
@@ -67,9 +67,99 @@ do
     local combatGroup = skeptaTab:AddLeftGroupbox("combat")
     
     local gunShops = {
+        -- Main Gun Shop
         ["[LMG]"] = CFrame.new(-577, 7.9, -716),
         ["[Rifle]"] = CFrame.new(-583, 7.9, -711),
-        ["[AUG]"] = CFrame.new(-583, 7.9, -722)
+        ["[AUG]"] = CFrame.new(-583, 7.9, -722),
+        ["[Shotgun]"] = CFrame.new(-578, 7.9, -727),
+        ["[SMG]"] = CFrame.new(-572, 7.9, -727),
+        ["[Revolver]"] = CFrame.new(-567, 7.9, -727),
+        ["[Silencer]"] = CFrame.new(-567, 7.9, -716),
+        ["[Glock]"] = CFrame.new(-567, 7.9, -722),
+        ["[Taser]"] = CFrame.new(-567, 7.9, -711),
+        ["[TacticalShotgun]"] = CFrame.new(-572, 7.9, -711),
+        ["[AR]"] = CFrame.new(-572, 7.9, -716),
+        ["[AK47]"] = CFrame.new(-572, 7.9, -722),
+        ["[Flamethrower]"] = CFrame.new(-578, 7.9, -711),
+        ["[RPG]"] = CFrame.new(-578, 7.9, -716),
+        ["[Minigun]"] = CFrame.new(-578, 7.9, -722),
+        
+        -- Melee Weapons
+        ["[Knife]"] = CFrame.new(-628, 8, -785),
+        ["[Bat]"] = CFrame.new(-625, 8, -785),
+        ["[Crowbar]"] = CFrame.new(-622, 8, -785),
+        ["[Hammer]"] = CFrame.new(-619, 8, -785),
+        ["[Machete]"] = CFrame.new(-616, 8, -785),
+        ["[Katana]"] = CFrame.new(-613, 8, -785),
+        ["[Pipe]"] = CFrame.new(-610, 8, -785),
+        ["[Wrench]"] = CFrame.new(-607, 8, -785),
+        ["[Chainsaw]"] = CFrame.new(-604, 8, -785),
+        ["[Pickaxe]"] = CFrame.new(-601, 8, -785),
+        ["[Shovel]"] = CFrame.new(-598, 8, -785),
+        ["[Axe]"] = CFrame.new(-595, 8, -785),
+        ["[Sledgehammer]"] = CFrame.new(-592, 8, -785),
+        ["[Cleaver]"] = CFrame.new(-589, 8, -785),
+        ["[Spear]"] = CFrame.new(-586, 8, -785)
+    }
+    
+    local allShops = {
+        -- Ranged Weapons
+        ["[LMG]"] = CFrame.new(-577, 7.9, -716),
+        ["[Rifle]"] = CFrame.new(-583, 7.9, -711),
+        ["[AUG]"] = CFrame.new(-583, 7.9, -722),
+        ["[Shotgun]"] = CFrame.new(-578, 7.9, -727),
+        ["[SMG]"] = CFrame.new(-572, 7.9, -727),
+        ["[Revolver]"] = CFrame.new(-567, 7.9, -727),
+        ["[Silencer]"] = CFrame.new(-567, 7.9, -716),
+        ["[Glock]"] = CFrame.new(-567, 7.9, -722),
+        ["[Taser]"] = CFrame.new(-567, 7.9, -711),
+        ["[TacticalShotgun]"] = CFrame.new(-572, 7.9, -711),
+        ["[AR]"] = CFrame.new(-572, 7.9, -716),
+        ["[AK47]"] = CFrame.new(-572, 7.9, -722),
+        ["[Flamethrower]"] = CFrame.new(-578, 7.9, -711),
+        ["[RPG]"] = CFrame.new(-578, 7.9, -716),
+        ["[Minigun]"] = CFrame.new(-578, 7.9, -722),
+        
+        -- Melee Weapons
+        ["[Knife]"] = CFrame.new(-628, 8, -785),
+        ["[Bat]"] = CFrame.new(-625, 8, -785),
+        ["[Crowbar]"] = CFrame.new(-622, 8, -785),
+        ["[Hammer]"] = CFrame.new(-619, 8, -785),
+        ["[Machete]"] = CFrame.new(-616, 8, -785),
+        ["[Katana]"] = CFrame.new(-613, 8, -785),
+        ["[Pipe]"] = CFrame.new(-610, 8, -785),
+        ["[Wrench]"] = CFrame.new(-607, 8, -785),
+        ["[Chainsaw]"] = CFrame.new(-604, 8, -785),
+        ["[Pickaxe]"] = CFrame.new(-601, 8, -785),
+        ["[Shovel]"] = CFrame.new(-598, 8, -785),
+        ["[Axe]"] = CFrame.new(-595, 8, -785),
+        ["[Sledgehammer]"] = CFrame.new(-592, 8, -785),
+        ["[Cleaver]"] = CFrame.new(-589, 8, -785),
+        ["[Spear]"] = CFrame.new(-586, 8, -785),
+        
+        -- Food & Drinks
+        ["[Chicken]"] = CFrame.new(-335, 23, -298),
+        ["[Hamburger]"] = CFrame.new(-338, 23, -299),
+        ["[Pizza]"] = CFrame.new(-332, 23, -300),
+        ["[Cranberry]"] = CFrame.new(-340, 23, -297),
+        ["[Lemonade]"] = CFrame.new(-329, 23, -296),
+        ["[Donut]"] = CFrame.new(-334, 23, -304),
+        ["[Sandwich]"] = CFrame.new(-331, 23, -302),
+        ["[Chips]"] = CFrame.new(-337, 23, -301),
+        ["[Soda]"] = CFrame.new(-333, 23, -298),
+        ["[Coffee]"] = CFrame.new(-336, 23, -295),
+        
+        -- Masks & Accessories
+        ["[Mask]"] = CFrame.new(-324, 22, -85),
+        ["[Ski Mask]"] = CFrame.new(-324, 22, -85),
+        ["[Durag]"] = CFrame.new(-204, 22, -89),
+        ["[Bandana]"] = CFrame.new(-198, 22, -89),
+        ["[Letterman]"] = CFrame.new(-200, 22, -85),
+        ["[Hoodie]"] = CFrame.new(-202, 22, -87),
+        ["[Cap]"] = CFrame.new(-196, 22, -87),
+        ["[Beanie]"] = CFrame.new(-194, 22, -85),
+        
+        ["[Medkit]"] = CFrame.new(-630, 8, -780)
     }
     
     local whitelistedPlayers = {}
@@ -174,6 +264,61 @@ do
         return false
     end
     
+    local function buyItem(itemName)
+        if not itemName or not allShops[itemName] then return false end
+        
+        local char = LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+        
+        local originalPosition = char.HumanoidRootPart.CFrame
+        
+        char.HumanoidRootPart.CFrame = allShops[itemName]
+        task.wait(0.5)
+        
+        for _, part in pairs(workspace:GetDescendants()) do
+            if part:IsA("Part") and part.Name == "BuyButton" and part:FindFirstChild("SurfaceGui") then
+                local surfaceGui = part:FindFirstChild("SurfaceGui")
+                if surfaceGui and surfaceGui:FindFirstChild("TextLabel") then
+                    local textLabel = surfaceGui:FindFirstChild("TextLabel")
+                    if textLabel and string.find(textLabel.Text, itemName) then
+                        char.HumanoidRootPart.CFrame = part.CFrame * CFrame.new(0, 0, -3)
+                        task.wait(0.2)
+                        
+                        if part:FindFirstChild("ClickDetector") then
+                            fireclickdetector(part.ClickDetector)
+                            task.wait(0.5)
+                        end
+                        break
+                    end
+                end
+            end
+        end
+        
+        char.HumanoidRootPart.CFrame = originalPosition
+        
+        -- Check if item was purchased
+        for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+            if tool.Name == itemName then
+                return true
+            end
+        end
+        
+        for _, tool in pairs(char:GetChildren()) do
+            if tool:IsA("Tool") and tool.Name == itemName then
+                return true
+            end
+        end
+        
+        -- Check player's character for wearable items
+        for _, accessory in pairs(char:GetChildren()) do
+            if accessory:IsA("Accessory") and string.find(accessory.Name, itemName) then
+                return true
+            end
+        end
+        
+        return false
+    end
+    
     local function getWeapon()
         local selectedWeapon = Options.auto_stomp_weapon.Value
         
@@ -198,7 +343,7 @@ do
             end
         end
         
-        local fallbackWeapons = {"[LMG]", "[Rifle]", "[AUG]"}
+        local fallbackWeapons = {"[LMG]", "[Rifle]", "[AUG]", "[Shotgun]", "[SMG]", "[AR]", "[AK47]", "[Glock]", "[Revolver]"}
         for _, weaponName in ipairs(fallbackWeapons) do
             if weaponName ~= selectedWeapon then
                 for _, tool in pairs(char:GetChildren()) do
@@ -272,16 +417,25 @@ do
     combatGroup:AddToggle("spinbot_toggle", {
         Text = "Spinbot",
         Default = false,
-        Tooltip = "Rapidly spin your character to dodge bullets"
+        Tooltip = "Rapidly spin your character to dodge bullets (Hold X key)"
     })
     
-    local spinbotConnection = nil
+    combatGroup:AddLabel("Hold X key to activate spinbot", true)
     
-    Toggles.spinbot_toggle:OnChanged(function(value)
-        if value then
+    local spinbotConnection = nil
+    local spinbotKeyHeld = false
+    
+    table.insert(framework.connections, UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == Enum.KeyCode.X and Toggles.spinbot_toggle.Value then
+            spinbotKeyHeld = true
             if spinbotConnection then spinbotConnection:Disconnect() end
             
             spinbotConnection = RunService.Heartbeat:Connect(function()
+                if not spinbotKeyHeld then 
+                    spinbotConnection:Disconnect()
+                    return 
+                end
                 local character = LocalPlayer.Character
                 if character and character:FindFirstChild("HumanoidRootPart") then
                     character.HumanoidRootPart.CFrame = character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(30), 0)
@@ -289,253 +443,129 @@ do
             end)
             
             table.insert(framework.connections, spinbotConnection)
-            api:Notify("Spinbot: ON", 2)
-        else
+            api:Notify("Spinbot: ACTIVE", 1)
+        end
+    end))
+    
+    table.insert(framework.connections, UserInputService.InputEnded:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == Enum.KeyCode.X then
+            spinbotKeyHeld = false
             if spinbotConnection then
                 spinbotConnection:Disconnect()
                 spinbotConnection = nil
             end
-            api:Notify("Spinbot: OFF", 2)
+            if Toggles.spinbot_toggle.Value then
+                api:Notify("Spinbot: INACTIVE", 1)
+            end
+        end
+    end))
+    
+    combatGroup:AddDivider("Auto Buy System")
+    
+    local autoBuyCategories = {
+        ["Ranged Weapons"] = {"[LMG]", "[Rifle]", "[AUG]", "[Shotgun]", "[TacticalShotgun]", "[SMG]", "[Revolver]", "[Silencer]", "[Glock]", "[Taser]", "[AR]", "[AK47]", "[Flamethrower]", "[RPG]", "[Minigun]"},
+        ["Melee Weapons"] = {"[Knife]", "[Bat]", "[Crowbar]", "[Hammer]", "[Machete]", "[Katana]", "[Pipe]", "[Wrench]", "[Chainsaw]", "[Pickaxe]", "[Shovel]", "[Axe]", "[Sledgehammer]", "[Cleaver]", "[Spear]"},
+        ["Food & Drinks"] = {"[Chicken]", "[Hamburger]", "[Pizza]", "[Cranberry]", "[Lemonade]", "[Donut]", "[Sandwich]", "[Chips]", "[Soda]", "[Coffee]"},
+        ["Masks & Accessories"] = {"[Mask]", "[Ski Mask]", "[Durag]", "[Bandana]", "[Letterman]", "[Hoodie]", "[Cap]", "[Beanie]"},
+        ["Drugs"] = {"[Lean]", "[Adderall]", "[Cocaine]", "[Mushrooms]", "[Weed]", "[Xanax]", "[Heroin]", "[Molly]"},
+        ["Equipment"] = {"[Armor]", "[Phone]", "[LockPick]", "[SprayPaint]", "[Handcuffs]", "[Flashlight]", "[Binoculars]", "[Medkit]"}
+    }
+    
+    combatGroup:AddDropdown("auto_buy_category", {
+        Text = "Item Category",
+        Default = 1,
+        Values = {"Ranged Weapons", "Melee Weapons", "Food & Drinks", "Masks & Accessories", "Drugs", "Equipment"},
+        Tooltip = "Select category of items to auto buy"
+    })
+    
+    combatGroup:AddDropdown("auto_buy_item", {
+        Text = "Item Selection",
+        Default = 1,
+        Values = autoBuyCategories["Ranged Weapons"],
+        Tooltip = "Select specific item to auto buy"
+    })
+    
+    Options.auto_buy_category:OnChanged(function(value)
+        local items = autoBuyCategories[value] or {}
+        Options.auto_buy_item:SetValues(items)
+        Options.auto_buy_item:SetValue(items[1] or "")
+    end)
+    
+    combatGroup:AddButton("Buy Selected Item", function()
+        local selectedItem = Options.auto_buy_item.Value
+        if selectedItem and selectedItem ~= "" then
+            api:Notify("Attempting to buy " .. selectedItem, 1)
+            if buyItem(selectedItem) then
+                api:Notify("Successfully bought " .. selectedItem, 2)
+            else
+                api:Notify("Failed to buy " .. selectedItem, 2)
+            end
+        else
+            api:Notify("No item selected", 2)
         end
     end)
     
-    combatGroup:AddDivider("Auto Stomp")
-    
-    combatGroup:AddDropdown("auto_stomp_weapon", {
-        Text = "Weapon Selection",
-        Default = 1,
-        Values = {"[LMG]", "[Rifle]", "[AUG]", "Ragebot Only"},
-        Tooltip = "Select weapon for auto stomp"
-    })
-    
-    combatGroup:AddToggle("auto_buy_toggle", {
-        Text = "Auto Buy Weapon",
-        Default = true,
-        Tooltip = "Automatically buys the selected weapon if not owned"
-    })
-    
-    combatGroup:AddSlider("stomp_speed", {
-        Text = "Stomp Speed",
-        Default = 10,
-        Min = 1,
-        Max = 30,
-        Rounding = 0,
-        Suffix = "x",
-        Tooltip = "How fast to send stomp commands"
-    })
-    
-    combatGroup:AddToggle("target_knocked", {
-        Text = "Target Knocked Players",
-        Default = true,
-        Tooltip = "Prioritize stomping already knocked players"
-    })
-    
-    combatGroup:AddToggle("use_ragebot", {
-        Text = "Use Ragebot",
-        Default = true,
-        Tooltip = "Use ragebot/silent aim for targeting"
-    })
-    
-    combatGroup:AddToggle("use_silent_aim", {
-        Text = "Use Silent Aim Target",
-        Default = true,
-        Tooltip = "Target your silent aim target when available"
-    })
-    
-    combatGroup:AddToggle("auto_reload", {
-        Text = "Auto Reload",
-        Default = true,
-        Tooltip = "Automatically reload weapons when needed"
-    })
-    
-    local autoStompActive = false
-    local autoStompConnection = nil
-    local autoStompShouldStop = false
-    
-    local function rapidStomp(player)
-        if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return false end
+    combatGroup:AddButton("Buy All Category Items", function()
+        local category = Options.auto_buy_category.Value
+        local items = autoBuyCategories[category] or {}
         
-        local char = LocalPlayer.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
-        
-        local targetHRP = player.Character.HumanoidRootPart
-        
-        char.HumanoidRootPart.CFrame = CFrame.new(targetHRP.Position + Vector3.new(0, 3, 0))
-        
-        local stompSpeed = Options.stomp_speed.Value
-        local stompCount = 0
-        local maxStomps = 50
-        local success = false
+        api:Notify("Buying all " .. category .. " items...", 2)
         
         task.spawn(function()
-            while stompCount < maxStomps and isPlayerKnocked(player) and autoStompActive do
-                game:GetService("ReplicatedStorage").MainEvent:FireServer("Stomp")
-                stompCount = stompCount + 1
-                task.wait(0.03 / stompSpeed)
+            for _, item in pairs(items) do
+                api:Notify("Buying " .. item, 1)
+                if buyItem(item) then
+                    api:Notify("✓ " .. item, 1)
+                else
+                    api:Notify("✗ " .. item, 1)
+                end
+                task.wait(1)
             end
-            
-            success = not isPlayerKnocked(player) or not player.Character
+            api:Notify("Finished buying " .. category .. " items", 2)
         end)
-        
-        local startTime = os.clock()
-        while os.clock() - startTime < 2 and isPlayerKnocked(player) and autoStompActive do
-            task.wait(0.1)
-        end
-        
-        return success
-    end
+    end)
     
-    local function useRagebotOnTarget(target)
-        if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return false end
+    combatGroup:AddButton("Buy All Weapons", function()
+        api:Notify("Buying all weapons...", 2)
         
-        local startTime = os.clock()
-        local timeout = 5
-        
-        while not isPlayerKnocked(target) and os.clock() - startTime < timeout and autoStompActive do
-            task.wait(0.1)
-        end
-        
-        return isPlayerKnocked(target)
-    end
-    
-    local function advancedKnockAndStomp(target)
-        if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return false end
-        
-        local char = LocalPlayer.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
-        
-        local originalPosition = char.HumanoidRootPart.CFrame
-        
-        local knocked = false
-        
-        if Toggles.use_ragebot.Value then
-            knocked = useRagebotOnTarget(target)
-        else
-            local weapon = getWeapon()
-            if not weapon then return false end
-            
-            if weapon ~= true then
-                local targetHRP = target.Character.HumanoidRootPart
-                local targetPos = targetHRP.Position
-                
-                local positions = {
-                    CFrame.new(targetPos + Vector3.new(0, 0, 4), targetPos),
-                    CFrame.new(targetPos + Vector3.new(4, 0, 0), targetPos),
-                    CFrame.new(targetPos + Vector3.new(0, 0, -4), targetPos),
-                    CFrame.new(targetPos + Vector3.new(-4, 0, 0), targetPos),
-                    CFrame.new(targetPos + Vector3.new(0, 4, 0))
-                }
-                
-                for _, pos in ipairs(positions) do
-                    if isPlayerKnocked(target) then
-                        knocked = true
-                        break
-                    end
-                    
-                    char.HumanoidRootPart.CFrame = pos
-                    task.wait(0.1)
-                    
-                    for i = 1, 5 do
-                        weapon:Activate()
-                        task.wait(0.05)
-                    end
-                    
-                    task.wait(0.1)
-                end
-                
-                reloadWeapon(weapon)
-                
-                task.wait(0.3)
-                knocked = isPlayerKnocked(target)
+        task.spawn(function()
+            local allWeapons = {}
+            for _, weapon in pairs(autoBuyCategories["Ranged Weapons"]) do
+                table.insert(allWeapons, weapon)
             end
-        end
-        
-        if knocked or isPlayerKnocked(target) then
-            rapidStomp(target)
-        end
-        
-        if char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = originalPosition
-        end
-        
-        return true
+            for _, weapon in pairs(autoBuyCategories["Melee Weapons"]) do
+                table.insert(allWeapons, weapon)
+            end
+            
+            for _, weapon in pairs(allWeapons) do
+                api:Notify("Buying " .. weapon, 1)
+                if buyItem(weapon) then
+                    api:Notify("✓ " .. weapon, 1)
+                else
+                    api:Notify("✗ " .. weapon, 1)
+                end
+                task.wait(0.8)
+            end
+            api:Notify("Finished buying all weapons", 2)
+        end)
+    end)
+    
+    combatGroup:AddDivider("Custom Hit Sounds")
+    
+    -- Register custom hit sounds using the API
+    if api.Sounds then
+        api.Sounds:Register("headshot", "rbxassetid://131961136")
+        api.Sounds:Register("hitmarker", "rbxassetid://160432334")
+        api.Sounds:Register("bell", "rbxassetid://131961136")
+        api.Sounds:Register("minecraft", "rbxassetid://4018633470")
+        api.Sounds:Register("osu", "rbxassetid://7147454322")
+        api.Sounds:Register("cod", "rbxassetid://160432334")
+        api.Sounds:Register("rust", "rbxassetid://1255040462")
+        api.Sounds:Register("bubble", "rbxassetid://198598793")
     end
     
-    combatGroup:AddToggle("auto_stomp", {
-        Text = "Auto Stomp",
-        Default = false,
-        Tooltip = "Automatically kills and stomps players",
-        Callback = function(state)
-            autoStompActive = state
-            
-            if state then
-                autoStompShouldStop = false
-                api:Notify("Ultra-Fast Auto Stomp: ON", 2)
-                
-                if autoStompConnection then autoStompConnection:Disconnect() end
-                
-                autoStompConnection = RunService.Heartbeat:Connect(function()
-                    if not autoStompActive then return end
-                    
-                    task.spawn(function()
-                        if autoStompShouldStop then return end
-                        
-                        local char = LocalPlayer.Character
-                        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-                        
-                        local originalPosition = char.HumanoidRootPart.CFrame
-                        
-                        if Toggles.target_knocked.Value then
-                            local knockedPlayer = findKnockedPlayer()
-                            if knockedPlayer then
-                                rapidStomp(knockedPlayer)
-                                
-                                if char:FindFirstChild("HumanoidRootPart") then
-                                    char.HumanoidRootPart.CFrame = originalPosition
-                                end
-                                
-                                return
-                            end
-                        end
-                        
-                        local targetPlayer = findTargetPlayer()
-                        if targetPlayer then
-                            advancedKnockAndStomp(targetPlayer)
-                        end
-                        
-                        if autoStompShouldStop then
-                            if char:FindFirstChild("HumanoidRootPart") and originalPosition then
-                                char.HumanoidRootPart.CFrame = originalPosition
-                            end
-                            return 
-                        end
-                    end)
-                end)
-                
-                table.insert(framework.connections, autoStompConnection)
-            else
-                autoStompShouldStop = true
-                api:Notify("Ultra-Fast Auto Stomp: OFF", 2)
-                
-                if autoStompConnection then
-                    autoStompConnection:Disconnect()
-                    autoStompConnection = nil
-                end
-                
-                task.spawn(function()
-                    task.wait(0.5)
-                    
-                    local char = LocalPlayer.Character
-                    if char then
-                        local hum = char:FindFirstChildOfClass("Humanoid")
-                        if hum then 
-                            hum.Health = 0 
-                        end
-                    end
-                end)
-            end
-        end
-    })
+    combatGroup:AddLabel("Custom hit sounds registered to visuals tab", true)
     
     combatGroup:AddDivider("Auto Grab")
     
@@ -971,6 +1001,144 @@ end
 do
     local utilGroup = skeptaTab:AddLeftGroupbox("utilities")
     
+    utilGroup:AddDivider("Da Hood Utilities")
+    
+    -- Auto Drug Dealer
+    local autoDrugDealerActive = false
+    
+    local function autoDrugDealerLoop()
+        while autoDrugDealerActive do
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                -- Look for drug dealer NPCs
+                for _, npc in pairs(workspace:GetChildren()) do
+                    if npc:IsA("Model") and npc.Name == "DrugDealer" then
+                        local npcHrp = npc:FindFirstChild("HumanoidRootPart")
+                        if npcHrp then
+                            local distance = (char.HumanoidRootPart.Position - npcHrp.Position).Magnitude
+                            if distance <= 20 then
+                                char.HumanoidRootPart.CFrame = npcHrp.CFrame * CFrame.new(0, 0, -3)
+                                task.wait(0.5)
+                                
+                                -- Look for interaction button
+                                for _, part in pairs(npc:GetChildren()) do
+                                    if part:IsA("Part") and part:FindFirstChild("ClickDetector") then
+                                        fireclickdetector(part.ClickDetector)
+                                        task.wait(1)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            task.wait(2)
+        end
+    end
+    
+    utilGroup:AddToggle("auto_drug_dealer", {
+        Text = "Auto Drug Dealer",
+        Default = false,
+        Tooltip = "Automatically interact with drug dealers",
+        Callback = function(state)
+            autoDrugDealerActive = state
+            if state then
+                task.spawn(autoDrugDealerLoop)
+                api:Notify("Auto Drug Dealer: ON", 2)
+            else
+                api:Notify("Auto Drug Dealer: OFF", 2)
+            end
+        end
+    })
+    
+    -- Auto Lockpick
+    local autoLockpickActive = false
+    
+    local function autoLockpickLoop()
+        while autoLockpickActive do
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                -- Look for lockpickable doors/ATMs
+                for _, obj in pairs(workspace:GetDescendants()) do
+                    if obj:IsA("Part") and (obj.Name == "ATM" or obj.Name == "Door") then
+                        local distance = (char.HumanoidRootPart.Position - obj.Position).Magnitude
+                        if distance <= 15 then
+                            -- Check if we have lockpick
+                            local lockpick = char:FindFirstChild("[LockPick]") or LocalPlayer.Backpack:FindFirstChild("[LockPick]")
+                            if lockpick then
+                                if lockpick.Parent == LocalPlayer.Backpack then
+                                    lockpick.Parent = char
+                                    task.wait(0.1)
+                                end
+                                
+                                char.HumanoidRootPart.CFrame = obj.CFrame * CFrame.new(0, 0, -3)
+                                task.wait(0.5)
+                                
+                                if lockpick:FindFirstChild("RemoteEvent") then
+                                    lockpick.RemoteEvent:FireServer()
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            task.wait(3)
+        end
+    end
+    
+    utilGroup:AddToggle("auto_lockpick", {
+        Text = "Auto Lockpick",
+        Default = false,
+        Tooltip = "Automatically lockpick doors and ATMs",
+        Callback = function(state)
+            autoLockpickActive = state
+            if state then
+                task.spawn(autoLockpickLoop)
+                api:Notify("Auto Lockpick: ON", 2)
+            else
+                api:Notify("Auto Lockpick: OFF", 2)
+            end
+        end
+    })
+    
+    -- Auto Mask
+    utilGroup:AddButton("Auto Equip Mask", function()
+        local char = LocalPlayer.Character
+        if char then
+            local mask = char:FindFirstChild("[Mask]") or LocalPlayer.Backpack:FindFirstChild("[Mask]")
+            if mask then
+                if mask.Parent == LocalPlayer.Backpack then
+                    mask.Parent = char
+                    api:Notify("Equipped mask", 2)
+                else
+                    api:Notify("Mask already equipped", 2)
+                end
+            else
+                api:Notify("No mask found", 2)
+            end
+        end
+    end)
+    
+    -- Auto Armor
+    utilGroup:AddButton("Auto Equip Armor", function()
+        local char = LocalPlayer.Character
+        if char then
+            local armor = char:FindFirstChild("[Armor]") or LocalPlayer.Backpack:FindFirstChild("[Armor]")
+            if armor then
+                if armor.Parent == LocalPlayer.Backpack then
+                    armor.Parent = char
+                    api:Notify("Equipped armor", 2)
+                else
+                    api:Notify("Armor already equipped", 2)
+                end
+            else
+                api:Notify("No armor found", 2)
+            end
+        end
+    end)
+    
+    utilGroup:AddDivider("Standard Utilities")
+    
     local auraActive = false
     
     local function cashAuraLoop()
@@ -1246,10 +1414,6 @@ function api.Unload()
     
     if spinbotConnection then
         spinbotConnection:Disconnect()
-    end
-    
-    if autoStompConnection then
-        autoStompConnection:Disconnect()
     end
     
     table.clear(framework.connections)
