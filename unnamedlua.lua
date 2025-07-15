@@ -38,6 +38,10 @@ do
     
     updatesGroup:AddLabel(
         'update logs:\n' ..
+        '[+] fixed auto stomp\n' ..
+        '[+] added whitelist management for auto stomp\n' ..
+        '[+] added weapon selection and auto-buy options\n' ..
+        '[+] improved targeting system with silent aim integration\n' ..
         '[+] fixed trash talk\n' ..
         '[+] teleport to silent aim target\n' ..
         '[+] added fling all feature\n' ..
