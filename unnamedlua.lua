@@ -414,7 +414,7 @@ do
         end
     end))
     
-    -- Fix spinbot implementation
+    -- Fix spinbot implementation with a simpler approach
     local spinbotActive = false
     local spinbotConnection = nil
     
@@ -458,23 +458,26 @@ do
         end
     })
     
+    -- Try a simple keybind without additional handlers
     combatGroup:AddKeybind("spinbot_key", {
-        Text = "Spinbot Toggle Key",
+        Text = "Spinbot Key",
         Default = "X",
-        Mode = "Toggle",
         Tooltip = "Press to toggle spinbot on/off",
-        OnClick = function()
-            if Toggles.spinbot_toggle.Value then
+        Callback = function()
+            if Toggles and Toggles.spinbot_toggle and Toggles.spinbot_toggle.Value then
                 toggleSpinbot()
             end
         end
     })
     
-    -- Safer API integration attempt
-    pcall(function()
-        if api and api.Keybinds and typeof(api.Keybinds.Register) == "function" then
-            api.Keybinds:Register("Spinbot", "spinbot_key", "Toggle spinbot")
-        end
+    -- Register the keybind in a safe way
+    task.spawn(function()
+        task.wait(1) -- Wait for UI to initialize
+        pcall(function()
+            if api and api.Keybinds and type(api.Keybinds.Register) == "function" then
+                api.Keybinds:Register("Spinbot", "spinbot_key", "Toggle spinbot")
+            end
+        end)
     end)
     
     combatGroup:AddDivider("Custom Hit Sounds")
