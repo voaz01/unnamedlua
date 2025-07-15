@@ -38,15 +38,14 @@ do
     
     updatesGroup:AddLabel(
         'update logs:\n' ..
+        '[+] added auto grab feature with orbit protection\n' ..
+        '[+] added auto grab\n' ..
         '[+] added player stats monitor\n' ..
-        '[+] added spinbot feature\n' ..
+        '[+] added spinbot\n' ..
         '[+] fixed script loading issues\n' ..
-        '[+] ultra-fast auto stomp with ragebot integration\n' ..
-        '[+] added whitelist management system\n' ..
+        '[+] added whitelist\n' ..
         '[+] added weapon selection and auto-buy options\n' ..
         '[+] improved targeting system with silent aim\n' ..
-        '[+] fixed trash talk functionality\n' ..
-        '[+] added anti-RPG protection\n' ..
 	'find any bugs? dm me. have any suggestions? @daskepta on discord', true
     )
 end
@@ -543,6 +542,9 @@ do
     local autoGrabActive = false
     local autoGrabConnection = nil
     local grabSafePosition = nil
+    local orbitAngle = 0
+    local grabbedPlayer = nil
+    local isGrabbing = false
     
     local function getLMGWeapon()
         local char = LocalPlayer.Character
@@ -580,7 +582,23 @@ do
         return nil
     end
     
-    local function grabPlayer(player)
+    local function orbitAroundPlayer(player, radius)
+        if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+        
+        local char = LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        
+        local targetHRP = player.Character.HumanoidRootPart
+        orbitAngle = orbitAngle + math.rad(15) -- Increase orbit speed
+        
+        local orbitX = math.cos(orbitAngle) * radius
+        local orbitZ = math.sin(orbitAngle) * radius
+        
+        local orbitPosition = targetHRP.Position + Vector3.new(orbitX, 2, orbitZ)
+        char.HumanoidRootPart.CFrame = CFrame.new(orbitPosition, targetHRP.Position)
+    end
+    
+    local function performGrab(player)
         if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return false end
         
         local char = LocalPlayer.Character
@@ -588,20 +606,84 @@ do
         
         local targetHRP = player.Character.HumanoidRootPart
         
-        -- Position near target to grab
-        char.HumanoidRootPart.CFrame = CFrame.new(targetHRP.Position + Vector3.new(0, 2, 0))
+        -- Position close to target for grabbing
+        char.HumanoidRootPart.CFrame = CFrame.new(targetHRP.Position + Vector3.new(0, 0, 3), targetHRP.Position)
         task.wait(0.1)
         
-        -- Fire grab event
-        game:GetService("ReplicatedStorage").MainEvent:FireServer("Grabbing", true)
-        task.wait(0.2)
+        -- Fire the grab event with proper parameters
+        local args = {
+            [1] = "Grabbing",
+            [2] = true
+        }
+        game:GetService("ReplicatedStorage").MainEvent:FireServer(unpack(args))
         
-        -- Move to safe position with grabbed player
+        task.wait(0.3)
+        
+        -- Check if grab was successful by checking if player is in grabbed state
+        local bodyEffects = player.Character:FindFirstChild("BodyEffects")
+        if bodyEffects and bodyEffects:FindFirstChild("Grabbed") then
+            return bodyEffects.Grabbed.Value
+        end
+        
+        return false
+    end
+    
+    local function transportPlayer(player)
+        if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return false end
+        
+        local char = LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+        
+        if not grabSafePosition then
+            grabSafePosition = char.HumanoidRootPart.CFrame
+        end
+        
+        -- Transport while orbiting to avoid getting hit
+        local targetHRP = player.Character.HumanoidRootPart
+        local startPos = targetHRP.Position
+        local endPos = grabSafePosition.Position
+        
+        local distance = (endPos - startPos).Magnitude
+        local steps = math.max(10, math.floor(distance / 5))
+        
+        for i = 1, steps do
+            if not autoGrabActive or not player.Character then break end
+            
+            local alpha = i / steps
+            local lerpedPosition = startPos:lerp(endPos, alpha)
+            
+            -- Orbit around the lerped position while transporting
+            orbitAroundPlayer({Character = {HumanoidRootPart = {Position = lerpedPosition}}}, 4)
+            
+            -- Move the grabbed player with us
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local offsetPosition = lerpedPosition + Vector3.new(0, 2, 0)
+                player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPosition)
+            end
+            
+            task.wait(0.05)
+        end
+        
+        -- Final positioning
         if grabSafePosition then
             char.HumanoidRootPart.CFrame = grabSafePosition
         end
         
         return true
+    end
+    
+    local function releaseGrab()
+        if not isGrabbing then return end
+        
+        local args = {
+            [1] = "Grabbing",
+            [2] = false
+        }
+        game:GetService("ReplicatedStorage").MainEvent:FireServer(unpack(args))
+        
+        isGrabbing = false
+        grabbedPlayer = nil
+        orbitAngle = 0
     end
     
     local function killWithLMG(target)
@@ -616,30 +698,21 @@ do
         local targetHRP = target.Character.HumanoidRootPart
         local targetPos = targetHRP.Position
         
-        -- Position for shooting
-        local shootPositions = {
-            CFrame.new(targetPos + Vector3.new(0, 0, 6), targetPos),
-            CFrame.new(targetPos + Vector3.new(6, 0, 0), targetPos),
-            CFrame.new(targetPos + Vector3.new(0, 0, -6), targetPos),
-            CFrame.new(targetPos + Vector3.new(-6, 0, 0), targetPos),
-            CFrame.new(targetPos + Vector3.new(0, 5, 0))
-        }
+        -- Orbit around target while shooting
+        local shootTime = 0
+        local maxShootTime = 3
         
-        for _, pos in ipairs(shootPositions) do
-            if isPlayerKnocked(target) then
-                break
-            end
+        while shootTime < maxShootTime and not isPlayerKnocked(target) and autoGrabActive do
+            orbitAroundPlayer(target, 8)
             
-            char.HumanoidRootPart.CFrame = pos
-            task.wait(0.1)
-            
-            -- Shoot rapidly
-            for i = 1, 8 do
+            -- Shoot at target
+            for i = 1, 3 do
                 if isPlayerKnocked(target) then break end
                 lmg:Activate()
                 task.wait(0.05)
             end
             
+            shootTime = shootTime + 0.2
             task.wait(0.1)
         end
         
@@ -672,36 +745,67 @@ do
                     
                     -- Check if player is already knocked
                     if isPlayerKnocked(targetPlayer) then
-                        -- Grab knocked player
-                        grabPlayer(targetPlayer)
-                        api:Notify("Grabbed " .. targetPlayer.Name, 2)
+                        -- Attempt to grab knocked player
+                        if performGrab(targetPlayer) then
+                            isGrabbing = true
+                            grabbedPlayer = targetPlayer
+                            
+                            -- Transport player to safe position
+                            if transportPlayer(targetPlayer) then
+                                api:Notify("Successfully transported " .. targetPlayer.Name, 2)
+                            else
+                                api:Notify("Failed to transport " .. targetPlayer.Name, 2)
+                            end
+                            
+                            -- Release grab after transport
+                            task.wait(1)
+                            releaseGrab()
+                        else
+                            api:Notify("Failed to grab " .. targetPlayer.Name, 2)
+                        end
                     else
-                        -- Kill player first with LMG
+                        -- Kill player first with LMG while orbiting
                         if killWithLMG(targetPlayer) then
                             task.wait(0.5)
+                            
                             -- Now grab the knocked player
-                            if isPlayerKnocked(targetPlayer) then
-                                grabPlayer(targetPlayer)
-                                api:Notify("Killed and grabbed " .. targetPlayer.Name, 2)
+                            if isPlayerKnocked(targetPlayer) and performGrab(targetPlayer) then
+                                isGrabbing = true
+                                grabbedPlayer = targetPlayer
+                                
+                                -- Transport player to safe position
+                                if transportPlayer(targetPlayer) then
+                                    api:Notify("Killed and transported " .. targetPlayer.Name, 2)
+                                else
+                                    api:Notify("Killed but failed to transport " .. targetPlayer.Name, 2)
+                                end
+                                
+                                -- Release grab after transport
+                                task.wait(1)
+                                releaseGrab()
+                            else
+                                api:Notify("Killed but failed to grab " .. targetPlayer.Name, 2)
                             end
+                        else
+                            api:Notify("Failed to kill " .. targetPlayer.Name, 2)
                         end
                     end
                     
-                    -- Return to original position briefly
-                    if char:FindFirstChild("HumanoidRootPart") and originalPosition then
+                    -- Return to original position if not grabbing
+                    if not isGrabbing and char:FindFirstChild("HumanoidRootPart") and originalPosition then
                         char.HumanoidRootPart.CFrame = originalPosition
                     end
                 end
             end)
             
-            task.wait(0.5) -- Slight delay between grab attempts
+            task.wait(1) -- Longer delay between grab attempts
         end
     end
     
     combatGroup:AddToggle("auto_grab", {
         Text = "Auto Grab",
         Default = false,
-        Tooltip = "Automatically grabs knocked players or kills them with LMG first",
+        Tooltip = "Automatically grabs knocked players or kills them with LMG first, then transports them",
         Callback = function(state)
             autoGrabActive = state
             
@@ -712,10 +816,21 @@ do
                     grabSafePosition = char.HumanoidRootPart.CFrame
                 end
                 
+                -- Reset grab state
+                isGrabbing = false
+                grabbedPlayer = nil
+                orbitAngle = 0
+                
                 api:Notify("Auto Grab: ON", 2)
                 task.spawn(autoGrabLoop)
             else
                 api:Notify("Auto Grab: OFF", 2)
+                
+                -- Release any active grab
+                if isGrabbing then
+                    releaseGrab()
+                end
+                
                 grabSafePosition = nil
             end
         end
@@ -726,6 +841,15 @@ do
         if char and char:FindFirstChild("HumanoidRootPart") then
             grabSafePosition = char.HumanoidRootPart.CFrame
             api:Notify("Grab position set to current location", 2)
+        end
+    end)
+    
+    combatGroup:AddButton("Release Grab", function()
+        if isGrabbing then
+            releaseGrab()
+            api:Notify("Released grab", 2)
+        else
+            api:Notify("Not currently grabbing anyone", 2)
         end
     end)
     
