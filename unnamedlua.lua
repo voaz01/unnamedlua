@@ -414,6 +414,7 @@ do
         end
     end))
     
+    -- Fix spinbot implementation
     local spinbotActive = false
     local spinbotConnection = nil
     
@@ -421,7 +422,10 @@ do
         spinbotActive = not spinbotActive
         
         if spinbotActive then
-            if spinbotConnection then spinbotConnection:Disconnect() end
+            if spinbotConnection then 
+                spinbotConnection:Disconnect()
+                spinbotConnection = nil
+            end
             
             spinbotConnection = RunService.Heartbeat:Connect(function()
                 local character = LocalPlayer.Character
@@ -444,25 +448,34 @@ do
     combatGroup:AddToggle("spinbot_toggle", {
         Text = "Spinbot",
         Default = false,
-        Tooltip = "Toggle to enable/disable spinbot functionality"
+        Tooltip = "Toggle to enable/disable spinbot functionality",
+        Callback = function(state)
+            if state and not spinbotActive then
+                toggleSpinbot()
+            elseif not state and spinbotActive then
+                toggleSpinbot()
+            end
+        end
     })
     
     combatGroup:AddKeybind("spinbot_key", {
         Text = "Spinbot Toggle Key",
         Default = "X",
-        Mode = api.KeybindModes.Toggle,
+        Mode = "Toggle",
         Tooltip = "Press to toggle spinbot on/off",
-        Callback = function()
+        OnClick = function()
             if Toggles.spinbot_toggle.Value then
                 toggleSpinbot()
             end
         end
     })
     
-    
-    if api.Keybinds then
-        api.Keybinds:Register("Spinbot", "spinbot_key", "Toggle spinbot")
-    end
+    -- Safer API integration attempt
+    pcall(function()
+        if api and api.Keybinds and typeof(api.Keybinds.Register) == "function" then
+            api.Keybinds:Register("Spinbot", "spinbot_key", "Toggle spinbot")
+        end
+    end)
     
     combatGroup:AddDivider("Custom Hit Sounds")
     
