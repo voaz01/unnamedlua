@@ -538,61 +538,198 @@ do
         end
     })
     
-    combatGroup:AddToggle("anti_rpg", {
-        Text = "Anti RPG",
-        Default = true,
-    }):OnChanged(function(v)
-        framework.antiRpgActive = v
-    end)
+    combatGroup:AddDivider("Auto Grab")
     
-    local function GetLauncher()
-        return find_first_child(workspace, "Ignored")
-           and find_first_child(workspace.Ignored, "Model")
-           and find_first_child(workspace.Ignored.Model, "Launcher")
+    local autoGrabActive = false
+    local autoGrabConnection = nil
+    local grabSafePosition = nil
+    
+    local function getLMGWeapon()
+        local char = LocalPlayer.Character
+        if not char then return nil end
+        
+        -- Check if already equipped
+        for _, tool in pairs(char:GetChildren()) do
+            if tool:IsA("Tool") and tool.Name == "[LMG]" then
+                return tool
+            end
+        end
+        
+        -- Check backpack
+        for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+            if tool.Name == "[LMG]" then
+                tool.Parent = char
+                task.wait(0.1)
+                return tool
+            end
+        end
+        
+        -- Auto buy if enabled
+        if Toggles.auto_buy_toggle and Toggles.auto_buy_toggle.Value then
+            if buyWeapon("[LMG]") then
+                for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+                    if tool.Name == "[LMG]" then
+                        tool.Parent = char
+                        task.wait(0.1)
+                        return tool
+                    end
+                end
+            end
+        end
+        
+        return nil
     end
-
-    local function IsLauncherNear()
-        local HRP = LocalPlayer.Character and find_first_child(LocalPlayer.Character, "HumanoidRootPart")
-        local Launcher = GetLauncher()
-
-        if not HRP or not Launcher then return false end
-        return (Launcher.Position - HRP.Position).Magnitude < 20
-    end
-
-    local lastPosition = nil
-    local isVoided = false
-    local voidDebounce = false
-
-    local function VoidCharacter()
-        if voidDebounce then return end
-        voidDebounce = true
+    
+    local function grabPlayer(player)
+        if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return false end
         
         local char = LocalPlayer.Character
-        local hrp = char and find_first_child(char, "HumanoidRootPart")
-        if not hrp then return end
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
         
-        lastPosition = hrp.CFrame
-        hrp.CFrame = CFrame.new(0, -10000, 0) 
-        isVoided = true
+        local targetHRP = player.Character.HumanoidRootPart
         
-        task.delay(1, function()
-            if char and char:FindFirstChild("HumanoidRootPart") and lastPosition then
-                char.HumanoidRootPart.CFrame = lastPosition
-            end
-            isVoided = false
-            task.delay(0.5, function()
-                voidDebounce = false
-            end)
-        end)
-    end
-
-    table.insert(framework.connections, RunService.Heartbeat:Connect(function()
-        if not framework.antiRpgActive then return end
-
-        if IsLauncherNear() and not isVoided then
-            VoidCharacter()
+        -- Position near target to grab
+        char.HumanoidRootPart.CFrame = CFrame.new(targetHRP.Position + Vector3.new(0, 2, 0))
+        task.wait(0.1)
+        
+        -- Fire grab event
+        game:GetService("ReplicatedStorage").MainEvent:FireServer("Grabbing", true)
+        task.wait(0.2)
+        
+        -- Move to safe position with grabbed player
+        if grabSafePosition then
+            char.HumanoidRootPart.CFrame = grabSafePosition
         end
-    end))
+        
+        return true
+    end
+    
+    local function killWithLMG(target)
+        if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return false end
+        
+        local char = LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+        
+        local lmg = getLMGWeapon()
+        if not lmg then return false end
+        
+        local targetHRP = target.Character.HumanoidRootPart
+        local targetPos = targetHRP.Position
+        
+        -- Position for shooting
+        local shootPositions = {
+            CFrame.new(targetPos + Vector3.new(0, 0, 6), targetPos),
+            CFrame.new(targetPos + Vector3.new(6, 0, 0), targetPos),
+            CFrame.new(targetPos + Vector3.new(0, 0, -6), targetPos),
+            CFrame.new(targetPos + Vector3.new(-6, 0, 0), targetPos),
+            CFrame.new(targetPos + Vector3.new(0, 5, 0))
+        }
+        
+        for _, pos in ipairs(shootPositions) do
+            if isPlayerKnocked(target) then
+                break
+            end
+            
+            char.HumanoidRootPart.CFrame = pos
+            task.wait(0.1)
+            
+            -- Shoot rapidly
+            for i = 1, 8 do
+                if isPlayerKnocked(target) then break end
+                lmg:Activate()
+                task.wait(0.05)
+            end
+            
+            task.wait(0.1)
+        end
+        
+        -- Reload if needed
+        if Toggles.auto_reload and Toggles.auto_reload.Value then
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game)
+            task.wait(0.1)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.R, false, game)
+            task.wait(0.3)
+        end
+        
+        return isPlayerKnocked(target)
+    end
+    
+    local function autoGrabLoop()
+        while autoGrabActive do
+            task.spawn(function()
+                local char = LocalPlayer.Character
+                if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+                
+                -- Set safe position if not set
+                if not grabSafePosition then
+                    grabSafePosition = char.HumanoidRootPart.CFrame
+                end
+                
+                -- Find target player
+                local targetPlayer = findTargetPlayer()
+                if targetPlayer and not isWhitelisted(targetPlayer) then
+                    local originalPosition = char.HumanoidRootPart.CFrame
+                    
+                    -- Check if player is already knocked
+                    if isPlayerKnocked(targetPlayer) then
+                        -- Grab knocked player
+                        grabPlayer(targetPlayer)
+                        api:Notify("Grabbed " .. targetPlayer.Name, 2)
+                    else
+                        -- Kill player first with LMG
+                        if killWithLMG(targetPlayer) then
+                            task.wait(0.5)
+                            -- Now grab the knocked player
+                            if isPlayerKnocked(targetPlayer) then
+                                grabPlayer(targetPlayer)
+                                api:Notify("Killed and grabbed " .. targetPlayer.Name, 2)
+                            end
+                        end
+                    end
+                    
+                    -- Return to original position briefly
+                    if char:FindFirstChild("HumanoidRootPart") and originalPosition then
+                        char.HumanoidRootPart.CFrame = originalPosition
+                    end
+                end
+            end)
+            
+            task.wait(0.5) -- Slight delay between grab attempts
+        end
+    end
+    
+    combatGroup:AddToggle("auto_grab", {
+        Text = "Auto Grab",
+        Default = false,
+        Tooltip = "Automatically grabs knocked players or kills them with LMG first",
+        Callback = function(state)
+            autoGrabActive = state
+            
+            if state then
+                -- Set safe position to current position
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    grabSafePosition = char.HumanoidRootPart.CFrame
+                end
+                
+                api:Notify("Auto Grab: ON", 2)
+                task.spawn(autoGrabLoop)
+            else
+                api:Notify("Auto Grab: OFF", 2)
+                grabSafePosition = nil
+            end
+        end
+    })
+    
+    combatGroup:AddButton("Set Grab Position", function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            grabSafePosition = char.HumanoidRootPart.CFrame
+            api:Notify("Grab position set to current location", 2)
+        end
+    end)
+    
+    -- ...existing code...
 end
 
 do
