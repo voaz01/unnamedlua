@@ -38,6 +38,7 @@ do
     
     updatesGroup:AddLabel(
         'update logs:\n' ..
+        '[+] added player stats monitor\n' ..
         '[+] added spinbot feature\n' ..
         '[+] fixed script loading issues\n' ..
         '[+] ultra-fast auto stomp with ragebot integration\n' ..
