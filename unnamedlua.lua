@@ -606,23 +606,46 @@ do
         
         local targetHRP = player.Character.HumanoidRootPart
         
-        -- Position close to target for grabbing
-        char.HumanoidRootPart.CFrame = CFrame.new(targetHRP.Position + Vector3.new(0, 0, 3), targetHRP.Position)
-        task.wait(0.1)
+        -- Position very close to target for grabbing (must be knocked first)
+        if not isPlayerKnocked(player) then
+            return false
+        end
         
-        -- Fire the grab event with proper parameters
-        local args = {
-            [1] = "Grabbing",
-            [2] = true
-        }
-        game:GetService("ReplicatedStorage").MainEvent:FireServer(unpack(args))
+        -- Get right next to the knocked player
+        char.HumanoidRootPart.CFrame = CFrame.new(targetHRP.Position + Vector3.new(0, 0, 1), targetHRP.Position)
+        task.wait(0.2)
         
+        -- Fire the grab event - in Da Hood it's usually just "Grabbing"
+        game:GetService("ReplicatedStorage").MainEvent:FireServer("Grabbing")
         task.wait(0.3)
         
-        -- Check if grab was successful by checking if player is in grabbed state
+        -- Alternative grab method if first doesn't work
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            -- Try the E key grab method (common in Da Hood)
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+            task.wait(0.1)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+            task.wait(0.2)
+        end
+        
+        -- Check multiple ways if grab was successful
         local bodyEffects = player.Character:FindFirstChild("BodyEffects")
-        if bodyEffects and bodyEffects:FindFirstChild("Grabbed") then
-            return bodyEffects.Grabbed.Value
+        if bodyEffects then
+            -- Check for grabbed state
+            if bodyEffects:FindFirstChild("Grabbed") and bodyEffects.Grabbed.Value then
+                return true
+            end
+            -- Check if player is being carried
+            if bodyEffects:FindFirstChild("BeingCarried") and bodyEffects.BeingCarried.Value then
+                return true
+            end
+        end
+        
+        -- Check if player is connected to us (another way to detect grab)
+        local attachment = player.Character:FindFirstChild("GRABBING_CONSTRAINT")
+        if attachment then
+            return true
         end
         
         return false
@@ -675,11 +698,13 @@ do
     local function releaseGrab()
         if not isGrabbing then return end
         
-        local args = {
-            [1] = "Grabbing",
-            [2] = false
-        }
-        game:GetService("ReplicatedStorage").MainEvent:FireServer(unpack(args))
+        -- Try multiple release methods
+        game:GetService("ReplicatedStorage").MainEvent:FireServer("Grabbing")
+        
+        -- Also try E key release
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
         
         isGrabbing = false
         grabbedPlayer = nil
@@ -746,9 +771,12 @@ do
                     -- Check if player is already knocked
                     if isPlayerKnocked(targetPlayer) then
                         -- Attempt to grab knocked player
+                        api:Notify("Attempting to grab " .. targetPlayer.Name, 1)
+                        
                         if performGrab(targetPlayer) then
                             isGrabbing = true
                             grabbedPlayer = targetPlayer
+                            api:Notify("Successfully grabbed " .. targetPlayer.Name, 2)
                             
                             -- Transport player to safe position
                             if transportPlayer(targetPlayer) then
@@ -765,13 +793,17 @@ do
                         end
                     else
                         -- Kill player first with LMG while orbiting
+                        api:Notify("Killing " .. targetPlayer.Name, 1)
+                        
                         if killWithLMG(targetPlayer) then
                             task.wait(0.5)
+                            api:Notify("Successfully killed " .. targetPlayer.Name .. ", attempting grab", 2)
                             
                             -- Now grab the knocked player
                             if isPlayerKnocked(targetPlayer) and performGrab(targetPlayer) then
                                 isGrabbing = true
                                 grabbedPlayer = targetPlayer
+                                api:Notify("Successfully grabbed " .. targetPlayer.Name, 2)
                                 
                                 -- Transport player to safe position
                                 if transportPlayer(targetPlayer) then
@@ -850,6 +882,27 @@ do
             api:Notify("Released grab", 2)
         else
             api:Notify("Not currently grabbing anyone", 2)
+        end
+    end)
+    
+    combatGroup:AddButton("Test Grab (Closest Knocked)", function()
+        local knockedPlayer = findKnockedPlayer()
+        if knockedPlayer then
+            api:Notify("Testing grab on " .. knockedPlayer.Name, 2)
+            if performGrab(knockedPlayer) then
+                api:Notify("Test grab successful!", 2)
+                isGrabbing = true
+                grabbedPlayer = knockedPlayer
+                
+                -- Auto-release after 3 seconds
+                task.wait(3)
+                releaseGrab()
+                api:Notify("Auto-released test grab", 2)
+            else
+                api:Notify("Test grab failed", 2)
+            end
+        else
+            api:Notify("No knocked players found nearby", 2)
         end
     end)
     
