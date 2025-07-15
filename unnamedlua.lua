@@ -23,9 +23,7 @@ local framework = {
     isHoldingKey = false
 }
 
-
 local skeptaTab = api:AddTab("skepta")
-
 
 do
     local creditsGroup = skeptaTab:AddRightGroupbox("credits")
@@ -40,21 +38,208 @@ do
     
     updatesGroup:AddLabel(
         'update logs:\n' ..
-        '[+]  auto stomp with ragebot\n' ..
+        '[+] added spinbot feature\n' ..
+        '[+] fixed script loading issues\n' ..
+        '[+] ultra-fast auto stomp with ragebot integration\n' ..
         '[+] added whitelist management system\n' ..
         '[+] added weapon selection and auto-buy options\n' ..
         '[+] improved targeting system with silent aim\n' ..
         '[+] fixed trash talk functionality\n' ..
         '[+] added anti-RPG protection\n' ..
-        '[+] added fling all feature\n' ..
 	'find any bugs? dm me. have any suggestions? @daskepta on discord', true
     )
 end
 
+local function find_first_child(obj, name)
+    return obj and obj:FindFirstChild(name)
+end
+
+local function isPlayerKnocked(player)
+    if not player or not player.Character then return false end
+    
+    local bodyEffects = player.Character:FindFirstChild("BodyEffects")
+    if not bodyEffects or not bodyEffects:FindFirstChild("K.O") then return false end
+    
+    return bodyEffects["K.O"].Value
+end
 
 do
     local combatGroup = skeptaTab:AddLeftGroupbox("combat")
     
+    local gunShops = {
+        ["[LMG]"] = CFrame.new(-577, 7.9, -716),
+        ["[Rifle]"] = CFrame.new(-583, 7.9, -711),
+        ["[AUG]"] = CFrame.new(-583, 7.9, -722)
+    }
+    
+    local whitelistedPlayers = {}
+    
+    local function isWhitelisted(player)
+        if not player then return false end
+        return whitelistedPlayers[player.Name] or whitelistedPlayers[player.DisplayName] or false
+    end
+    
+    local function findKnockedPlayer()
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and 
+               player.Character and 
+               player.Character:FindFirstChild("HumanoidRootPart") and
+               not isWhitelisted(player) and 
+               isPlayerKnocked(player) then
+                return player
+            end
+        end
+        return nil
+    end
+    
+    local function findTargetPlayer()
+        if Toggles and Toggles.use_silent_aim and Toggles.use_silent_aim.Value and api.Target and api.Target.silent and api.Target.silent.player then
+            local target = api.Target.silent.player
+            if target ~= LocalPlayer and 
+               target.Character and 
+               target.Character:FindFirstChild("HumanoidRootPart") and
+               not isWhitelisted(target) and
+               not isPlayerKnocked(target) then
+                return target
+            end
+        end
+        
+        local closestPlayer = nil
+        local closestDistance = math.huge
+        
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and 
+               player.Character and 
+               player.Character:FindFirstChild("HumanoidRootPart") and
+               player.Character:FindFirstChildOfClass("Humanoid") and
+               player.Character:FindFirstChildOfClass("Humanoid").Health > 0 and
+               not isWhitelisted(player) and
+               not isPlayerKnocked(player) then
+                
+                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                if distance < closestDistance then
+                    closestDistance = distance
+                    closestPlayer = player
+                end
+            end
+        end
+        
+        return closestPlayer
+    end
+    
+    local function buyWeapon(weaponName)
+        if not weaponName or not gunShops[weaponName] then return false end
+        
+        local char = LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+        
+        local originalPosition = char.HumanoidRootPart.CFrame
+        
+        char.HumanoidRootPart.CFrame = gunShops[weaponName]
+        task.wait(0.5)
+        
+        for _, part in pairs(workspace:GetDescendants()) do
+            if part:IsA("Part") and part.Name == "BuyButton" and part:FindFirstChild("SurfaceGui") then
+                local surfaceGui = part:FindFirstChild("SurfaceGui")
+                if surfaceGui and surfaceGui:FindFirstChild("TextLabel") then
+                    local textLabel = surfaceGui:FindFirstChild("TextLabel")
+                    if textLabel and string.find(textLabel.Text, weaponName) then
+                        char.HumanoidRootPart.CFrame = part.CFrame * CFrame.new(0, 0, -3)
+                        task.wait(0.2)
+                        
+                        if part:FindFirstChild("ClickDetector") then
+                            fireclickdetector(part.ClickDetector)
+                            task.wait(0.5)
+                        end
+                        break
+                    end
+                end
+            end
+        end
+        
+        char.HumanoidRootPart.CFrame = originalPosition
+        
+        for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+            if tool.Name == weaponName then
+                return true
+            end
+        end
+        
+        for _, tool in pairs(char:GetChildren()) do
+            if tool:IsA("Tool") and tool.Name == weaponName then
+                return true
+            end
+        end
+        
+        return false
+    end
+    
+    local function getWeapon()
+        local selectedWeapon = Options.auto_stomp_weapon.Value
+        
+        if selectedWeapon == "Ragebot Only" then
+            return true
+        end
+        
+        local char = LocalPlayer.Character
+        if not char then return nil end
+        
+        for _, tool in pairs(char:GetChildren()) do
+            if tool:IsA("Tool") and tool.Name == selectedWeapon then
+                return tool
+            end
+        end
+        
+        for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+            if tool.Name == selectedWeapon then
+                tool.Parent = char
+                task.wait(0.1)
+                return tool
+            end
+        end
+        
+        local fallbackWeapons = {"[LMG]", "[Rifle]", "[AUG]"}
+        for _, weaponName in ipairs(fallbackWeapons) do
+            if weaponName ~= selectedWeapon then
+                for _, tool in pairs(char:GetChildren()) do
+                    if tool:IsA("Tool") and tool.Name == weaponName then
+                        return tool
+                    end
+                end
+                
+                for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+                    if tool.Name == weaponName then
+                        tool.Parent = char
+                        task.wait(0.1)
+                        return tool
+                    end
+                end
+            end
+        end
+        
+        if Toggles.auto_buy_toggle and Toggles.auto_buy_toggle.Value then
+            if buyWeapon(selectedWeapon) then
+                for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+                    if tool.Name == selectedWeapon then
+                        tool.Parent = char
+                        task.wait(0.1)
+                        return tool
+                    end
+                end
+            end
+        end
+        
+        return nil
+    end
+    
+    local function reloadWeapon(weapon)
+        if not weapon or not Toggles.auto_reload or not Toggles.auto_reload.Value or weapon == true then return end
+        
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.R, false, game)
+        task.wait(0.2)
+    end
     
     local silentBlockToggle = combatGroup:AddToggle("god_block", {
         Text = "god block",
@@ -84,7 +269,6 @@ do
         end
     end))
     
-   
     combatGroup:AddToggle("spinbot_toggle", {
         Text = "Spinbot",
         Default = false,
@@ -95,13 +279,11 @@ do
     
     Toggles.spinbot_toggle:OnChanged(function(value)
         if value then
-            
             if spinbotConnection then spinbotConnection:Disconnect() end
             
             spinbotConnection = RunService.Heartbeat:Connect(function()
                 local character = LocalPlayer.Character
                 if character and character:FindFirstChild("HumanoidRootPart") then
-                    
                     character.HumanoidRootPart.CFrame = character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(30), 0)
                 end
             end)
@@ -109,7 +291,6 @@ do
             table.insert(framework.connections, spinbotConnection)
             api:Notify("Spinbot: ON", 2)
         else
-            
             if spinbotConnection then
                 spinbotConnection:Disconnect()
                 spinbotConnection = nil
@@ -118,7 +299,6 @@ do
         end
     end)
     
-    -- Auto stomp section
     combatGroup:AddDivider("Auto Stomp")
     
     combatGroup:AddDropdown("auto_stomp_weapon", {
@@ -172,7 +352,6 @@ do
     local autoStompConnection = nil
     local autoStompShouldStop = false
     
-  
     local function rapidStomp(player)
         if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return false end
         
@@ -181,7 +360,6 @@ do
         
         local targetHRP = player.Character.HumanoidRootPart
         
-       
         char.HumanoidRootPart.CFrame = CFrame.new(targetHRP.Position + Vector3.new(0, 3, 0))
         
         local stompSpeed = Options.stomp_speed.Value
@@ -189,19 +367,16 @@ do
         local maxStomps = 50
         local success = false
         
-       
         task.spawn(function()
             while stompCount < maxStomps and isPlayerKnocked(player) and autoStompActive do
                 game:GetService("ReplicatedStorage").MainEvent:FireServer("Stomp")
                 stompCount = stompCount + 1
-                task.wait(0.03 / stompSpeed) 
+                task.wait(0.03 / stompSpeed)
             end
-            
             
             success = not isPlayerKnocked(player) or not player.Character
         end)
         
-   
         local startTime = os.clock()
         while os.clock() - startTime < 2 and isPlayerKnocked(player) and autoStompActive do
             task.wait(0.1)
@@ -210,14 +385,11 @@ do
         return success
     end
     
-   
     local function useRagebotOnTarget(target)
         if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return false end
         
-        
         local startTime = os.clock()
         local timeout = 5
-        
         
         while not isPlayerKnocked(target) and os.clock() - startTime < timeout and autoStompActive do
             task.wait(0.1)
@@ -226,7 +398,6 @@ do
         return isPlayerKnocked(target)
     end
     
-  
     local function advancedKnockAndStomp(target)
         if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return false end
         
@@ -235,22 +406,18 @@ do
         
         local originalPosition = char.HumanoidRootPart.CFrame
         
-        
         local knocked = false
         
-       
         if Toggles.use_ragebot.Value then
             knocked = useRagebotOnTarget(target)
         else
-       
             local weapon = getWeapon()
             if not weapon then return false end
             
-            if weapon ~= true then 
+            if weapon ~= true then
                 local targetHRP = target.Character.HumanoidRootPart
                 local targetPos = targetHRP.Position
                 
-              
                 local positions = {
                     CFrame.new(targetPos + Vector3.new(0, 0, 4), targetPos),
                     CFrame.new(targetPos + Vector3.new(4, 0, 0), targetPos),
@@ -278,17 +445,14 @@ do
                 
                 reloadWeapon(weapon)
                 
-               
                 task.wait(0.3)
                 knocked = isPlayerKnocked(target)
             end
         end
         
-    
         if knocked or isPlayerKnocked(target) then
             rapidStomp(target)
         end
-        
         
         if char:FindFirstChild("HumanoidRootPart") then
             char.HumanoidRootPart.CFrame = originalPosition
@@ -321,7 +485,6 @@ do
                         
                         local originalPosition = char.HumanoidRootPart.CFrame
                         
-                        -- First priority: Check for knocked players if enabled
                         if Toggles.target_knocked.Value then
                             local knockedPlayer = findKnockedPlayer()
                             if knockedPlayer then
@@ -335,7 +498,6 @@ do
                             end
                         end
                         
-                      
                         local targetPlayer = findTargetPlayer()
                         if targetPlayer then
                             advancedKnockAndStomp(targetPlayer)
@@ -375,7 +537,6 @@ do
         end
     })
     
-
     combatGroup:AddToggle("anti_rpg", {
         Text = "Anti RPG",
         Default = true,
@@ -383,10 +544,6 @@ do
         framework.antiRpgActive = v
     end)
     
-    local function find_first_child(obj, name)
-        return obj and obj:FindFirstChild(name)
-    end
-
     local function GetLauncher()
         return find_first_child(workspace, "Ignored")
            and find_first_child(workspace.Ignored, "Model")
@@ -437,10 +594,8 @@ do
     end))
 end
 
-
 do
     local playerGroup = skeptaTab:AddRightGroupbox("player management")
-    
     
     playerGroup:AddDivider("Whitelist Management")
     
@@ -450,8 +605,6 @@ do
         Placeholder = "Enter username to whitelist",
         Finished = true
     })
-    
-    local whitelistedPlayers = {}
     
     playerGroup:AddButton("Add to Whitelist", function()
         local playerName = Options.whitelist_input.Value
@@ -474,7 +627,6 @@ do
         api:Notify("Whitelist cleared", 2)
     end)
     
-
     playerGroup:AddDivider("Player Interaction")
     
     local words = {
@@ -545,23 +697,10 @@ do
     end))
 end
 
-
 do
     local utilGroup = skeptaTab:AddLeftGroupbox("utilities")
     
-
     local auraActive = false
-    
-    utilGroup:AddToggle("cash_aura_toggle", {
-        Text = "Cash Aura",
-        Default = true,
-        Callback = function(state)
-            auraActive = state
-            if state then
-                task.spawn(cashAuraLoop)
-            end
-        end
-    })
     
     local function cashAuraLoop()
         while auraActive do
@@ -587,12 +726,22 @@ do
         end
     end
     
+    utilGroup:AddToggle("cash_aura_toggle", {
+        Text = "Cash Aura",
+        Default = true,
+        Callback = function(state)
+            auraActive = state
+            if state then
+                task.spawn(cashAuraLoop)
+            end
+        end
+    })
+    
     if Toggles.cash_aura_toggle and Toggles.cash_aura_toggle.Value then
         auraActive = true
         task.spawn(cashAuraLoop)
     end
     
-
     local afkConnection
     
     utilGroup:AddToggle("anti_afk", {
@@ -614,17 +763,8 @@ do
         end
     })
     
-
     local jerkTool = nil
     local respawnConnection = nil
-    
-    utilGroup:AddToggle("jerk_toggle", {
-        Text = "Jerk Tool",
-        Default = false,
-        Callback = function(state)
-            if state then createTool() else removeTool() end
-        end
-    })
     
     local function createTool()
         local plr = game:GetService("Players").LocalPlayer
@@ -702,7 +842,14 @@ do
         end
     end
     
-
+    utilGroup:AddToggle("jerk_toggle", {
+        Text = "Jerk Tool",
+        Default = false,
+        Callback = function(state)
+            if state then createTool() else removeTool() end
+        end
+    })
+    
     utilGroup:AddToggle("anti_fling", {
         Text = "Anti Fling",
         Default = false,
@@ -754,7 +901,8 @@ do
         end
     end))
     
-    -- Activity logs
+    local joinConn, leaveConn = nil, nil
+    
     utilGroup:AddToggle("logs_toggle", {
         Text = "Activity Logs",
         Default = false,
@@ -791,7 +939,6 @@ do
     })
 end
 
-
 do
     local serverGroup = skeptaTab:AddRightGroupbox("server")
     
@@ -817,7 +964,24 @@ do
         
         setclipboard(joinScript)
         
-        api:Notify("Copied server join script", 3);
+        api:Notify("Copied server join script", 3)
     end)
 end
 
+function api.Unload()
+    for _, connection in pairs(framework.connections) do
+        connection:Disconnect()
+    end
+    
+    if spinbotConnection then
+        spinbotConnection:Disconnect()
+    end
+    
+    if autoStompConnection then
+        autoStompConnection:Disconnect()
+    end
+    
+    table.clear(framework.connections)
+    table.clear(framework.elements)
+    table.clear(framework.ui)
+end
